@@ -39,7 +39,7 @@ import { useWorkspace } from "@/lib/workspace";
 export const Route = createFileRoute("/rlhf")({
   head: () => ({
     meta: [
-      { title: "RLHF Workbench — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:
