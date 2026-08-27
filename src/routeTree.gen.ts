@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnnotateRouteImport } from './routes/annotate'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenchmarkingRouteImport } from './routes/benchmarking'
+import { Route as FinetuningRouteImport } from './routes/finetuning'
 import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as LabelProfileRouteImport } from './routes/label-profile'
 import { Route as RlhfRouteImport } from './routes/rlhf'
@@ -36,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
 const BenchmarkingRoute = BenchmarkingRouteImport.update({
   id: '/benchmarking',
   path: '/benchmarking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinetuningRoute = FinetuningRouteImport.update({
+  id: '/finetuning',
+  path: '/finetuning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IngestionRoute = IngestionRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/annotate': typeof AnnotateRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
+  '/finetuning': typeof FinetuningRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
   '/rlhf': typeof RlhfRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/annotate': typeof AnnotateRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
+  '/finetuning': typeof FinetuningRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
   '/rlhf': typeof RlhfRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/annotate': typeof AnnotateRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
+  '/finetuning': typeof FinetuningRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
   '/rlhf': typeof RlhfRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/annotate'
     | '/auth'
     | '/benchmarking'
+    | '/finetuning'
     | '/ingestion'
     | '/label-profile'
     | '/rlhf'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/annotate'
     | '/auth'
     | '/benchmarking'
+    | '/finetuning'
     | '/ingestion'
     | '/label-profile'
     | '/rlhf'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/annotate'
     | '/auth'
     | '/benchmarking'
+    | '/finetuning'
     | '/ingestion'
     | '/label-profile'
     | '/rlhf'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AnnotateRoute: typeof AnnotateRoute
   AuthRoute: typeof AuthRoute
   BenchmarkingRoute: typeof BenchmarkingRoute
+  FinetuningRoute: typeof FinetuningRoute
   IngestionRoute: typeof IngestionRoute
   LabelProfileRoute: typeof LabelProfileRoute
   RlhfRoute: typeof RlhfRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/benchmarking'
       fullPath: '/benchmarking'
       preLoaderRoute: typeof BenchmarkingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finetuning': {
+      id: '/finetuning'
+      path: '/finetuning'
+      fullPath: '/finetuning'
+      preLoaderRoute: typeof FinetuningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ingestion': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnnotateRoute: AnnotateRoute,
   AuthRoute: AuthRoute,
   BenchmarkingRoute: BenchmarkingRoute,
+  FinetuningRoute: FinetuningRoute,
   IngestionRoute: IngestionRoute,
   LabelProfileRoute: LabelProfileRoute,
   RlhfRoute: RlhfRoute,
