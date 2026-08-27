@@ -286,9 +286,10 @@ function LabelProfileScreen() {
     );
   }
 
-  const resolvedModel = MODELS.find((m) => m.value === model)?.selfHosted
-    ? FALLBACK_MODEL
-    : model;
+  const finetunedModels = finetunedQuery.data ?? [];
+  const isFinetuned = finetunedModels.some((job) => job.result_model === model);
+  const resolvedModel =
+    isFinetuned || MODELS.find((m) => m.value === model)?.selfHosted ? FALLBACK_MODEL : model;
 
   const runFromType = useServerFn(generateFieldsFromType);
   const runFromSample = useServerFn(generateFieldsFromSample);
