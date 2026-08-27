@@ -124,7 +124,7 @@ type SelectedField = {
   bucket: string;
   description: string;
   origin: "library" | "ai_type" | "ai_sample" | "manual";
-  confidence?: number;
+  confidence?: number | undefined;
 };
 
 type LibraryField = {
