@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as LabelProfileRouteImport } from './routes/label-profile'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IngestionRoute = IngestionRouteImport.update({
+  id: '/ingestion',
+  path: '/ingestion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LabelProfileRoute = LabelProfileRouteImport.update({
   id: '/label-profile',
   path: '/label-profile',
@@ -32,30 +38,34 @@ const LabelProfileRoute = LabelProfileRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/label-profile'
+  fullPaths: '/' | '/auth' | '/ingestion' | '/label-profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/label-profile'
-  id: '__root__' | '/' | '/auth' | '/label-profile'
+  to: '/' | '/auth' | '/ingestion' | '/label-profile'
+  id: '__root__' | '/' | '/auth' | '/ingestion' | '/label-profile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  IngestionRoute: typeof IngestionRoute
   LabelProfileRoute: typeof LabelProfileRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ingestion': {
+      id: '/ingestion'
+      path: '/ingestion'
+      fullPath: '/ingestion'
+      preLoaderRoute: typeof IngestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/label-profile': {
       id: '/label-profile'
       path: '/label-profile'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  IngestionRoute: IngestionRoute,
   LabelProfileRoute: LabelProfileRoute,
 }
 export const routeTree = rootRouteImport
