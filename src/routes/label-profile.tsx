@@ -588,7 +588,9 @@ function LabelProfileScreen() {
           </Button>
         </div>
         <p className="mt-2 text-2xs text-muted-foreground">
-          {MODELS.find((m) => m.value === model)?.hint}
+          {isFinetuned
+            ? "Finetuned model from this project. It is served by your external trainer; schema generation here falls back to a hosted model."
+            : MODELS.find((m) => m.value === model)?.hint}
         </p>
 
         {sampleMutation.isPending ? (
