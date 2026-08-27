@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { SectionPage } from "@/components/app-shell/SectionPage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -290,14 +291,13 @@ function ExportPanel() {
                 {documents.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="py-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         aria-label={`Include ${doc.filename}`}
                         checked={Boolean(selected[doc.id])}
-                        onChange={(event) =>
-                          setSelected((prev) => ({ ...prev, [doc.id]: event.target.checked }))
+                        onCheckedChange={(checked) =>
+                          setSelected((prev) => ({ ...prev, [doc.id]: checked === true }))
                         }
-                        className="size-3.5 accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="size-3.5"
                       />
                     </TableCell>
                     <TableCell className="max-w-[16rem] truncate py-2 text-xs">
