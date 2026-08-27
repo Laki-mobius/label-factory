@@ -5,12 +5,10 @@ import {
   Activity,
   Archive,
   ArchiveRestore,
-  Database,
   FolderKanban,
   HardDrive,
   Loader2,
   Plug,
-  ShieldCheck,
   Trash2,
   Users,
 } from "lucide-react";
