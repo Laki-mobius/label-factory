@@ -518,6 +518,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deactivated_at: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -526,6 +527,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -534,6 +536,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -872,6 +875,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_storage_objects: {
+        Args: { _limit?: number }
+        Returns: {
+          created_at: string
+          object_name: string
+          project_id: string
+          size_bytes: number
+        }[]
+      }
       can_access_batch: { Args: { _batch_id: string }; Returns: boolean }
       can_access_benchmark_run: { Args: { _run_id: string }; Returns: boolean }
       can_access_document: { Args: { _document_id: string }; Returns: boolean }
