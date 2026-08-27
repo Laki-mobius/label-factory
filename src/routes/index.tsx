@@ -225,7 +225,6 @@ function ProjectsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-             
               size="sm"
               className="h-8 text-sm"
               onClick={() => setOpen(false)}
@@ -233,7 +232,7 @@ function ProjectsPage() {
               Cancel
             </Button>
             <Button
-             
+              size="sm"
               className="h-8 text-sm"
               disabled={!name.trim() || createProject.isPending}
               onClick={() => createProject.mutate()}
