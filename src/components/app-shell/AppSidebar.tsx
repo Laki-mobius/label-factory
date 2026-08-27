@@ -14,7 +14,7 @@ function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-sidebar-foreground/80",
+        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-sidebar-foreground/80",
         "transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         collapsed && "justify-center px-0",
       )}
@@ -53,7 +53,7 @@ export function AppSidebar() {
         </span>
         {collapsed ? null : (
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">LabelFactory</div>
+            <div className="text-xs font-semibold tracking-tight">LabelFactory</div>
             <div className="text-2xs text-muted-foreground">Document labeling</div>
           </div>
         )}
