@@ -72,7 +72,6 @@ export function TopBar({
           <SelectTrigger
             className="h-8 w-52 text-sm"
             aria-label="Active project"
-            size="sm"
           >
             <SelectValue placeholder={projects.length ? "Select a project" : "No projects yet"} />
           </SelectTrigger>

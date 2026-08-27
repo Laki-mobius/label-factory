@@ -108,7 +108,7 @@ function ProjectsPage() {
       searchValue={search}
       onSearchChange={setSearch}
       actions={
-        <Button size="sm" className="h-8 text-sm" onClick={() => setOpen(true)}>
+        <Button className="h-8 text-sm" onClick={() => setOpen(true)}>
           <Plus className="size-3.5" aria-hidden="true" />
           New project
         </Button>
@@ -129,7 +129,7 @@ function ProjectsPage() {
               : "Try a different search term."}
           </p>
           {projects.length === 0 ? (
-            <Button size="sm" className="mt-4 h-8 text-sm" onClick={() => setOpen(true)}>
+            <Button className="mt-4 h-8 text-sm" onClick={() => setOpen(true)}>
               <Plus className="size-3.5" aria-hidden="true" />
               Create project
             </Button>
@@ -195,7 +195,7 @@ function ProjectsPage() {
                 Industry / workspace type
               </Label>
               <Select value={workspaceType} onValueChange={setWorkspaceType}>
-                <SelectTrigger id="project-industry" className="h-9 text-sm" size="sm">
+                <SelectTrigger id="project-industry" className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -225,14 +225,14 @@ function ProjectsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              size="sm"
+             
               className="h-8 text-sm"
               onClick={() => setOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              size="sm"
+             
               className="h-8 text-sm"
               disabled={!name.trim() || createProject.isPending}
               onClick={() => createProject.mutate()}

@@ -29,7 +29,7 @@ function ProjectPicker() {
       {projects.length > 0 ? (
         <div className="mt-4">
           <Select onValueChange={(value) => setProjectId(value)}>
-            <SelectTrigger className="h-8 w-full text-sm" aria-label="Choose a project" size="sm">
+            <SelectTrigger className="h-8 w-full text-sm" aria-label="Choose a project">
               <SelectValue placeholder="Choose a project" />
             </SelectTrigger>
             <SelectContent>
@@ -42,7 +42,7 @@ function ProjectPicker() {
           </Select>
         </div>
       ) : (
-        <Button asChild size="sm" className="mt-4 h-8 text-sm">
+        <Button asChild className="mt-4 h-8 text-sm">
           <Link to="/">Create your first project</Link>
         </Button>
       )}
