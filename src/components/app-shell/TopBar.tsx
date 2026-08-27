@@ -46,6 +46,17 @@ export function TopBar({
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden size-8 md:inline-flex"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!collapsed}
+      >
+        <Menu className="size-4" />
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild className="md:hidden">
           <Button variant="ghost" size="icon" className="size-8" aria-label="Open navigation">
