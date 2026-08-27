@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenchmarkingRouteImport } from './routes/benchmarking'
 import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as LabelProfileRouteImport } from './routes/label-profile'
+import { Route as RlhfRouteImport } from './routes/rlhf'
 import { Route as SyntheticDataRouteImport } from './routes/synthetic-data'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +48,11 @@ const LabelProfileRoute = LabelProfileRouteImport.update({
   path: '/label-profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RlhfRoute = RlhfRouteImport.update({
+  id: '/rlhf',
+  path: '/rlhf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SyntheticDataRoute = SyntheticDataRouteImport.update({
   id: '/synthetic-data',
   path: '/synthetic-data',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/benchmarking': typeof BenchmarkingRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
   '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/benchmarking': typeof BenchmarkingRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
   '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/benchmarking': typeof BenchmarkingRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
   '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/benchmarking'
     | '/ingestion'
     | '/label-profile'
+    | '/rlhf'
     | '/synthetic-data'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/benchmarking'
     | '/ingestion'
     | '/label-profile'
+    | '/rlhf'
     | '/synthetic-data'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/benchmarking'
     | '/ingestion'
     | '/label-profile'
+    | '/rlhf'
     | '/synthetic-data'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   BenchmarkingRoute: typeof BenchmarkingRoute
   IngestionRoute: typeof IngestionRoute
   LabelProfileRoute: typeof LabelProfileRoute
+  RlhfRoute: typeof RlhfRoute
   SyntheticDataRoute: typeof SyntheticDataRoute
 }
 
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LabelProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rlhf': {
+      id: '/rlhf'
+      path: '/rlhf'
+      fullPath: '/rlhf'
+      preLoaderRoute: typeof RlhfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/synthetic-data': {
       id: '/synthetic-data'
       path: '/synthetic-data'
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   BenchmarkingRoute: BenchmarkingRoute,
   IngestionRoute: IngestionRoute,
   LabelProfileRoute: LabelProfileRoute,
+  RlhfRoute: RlhfRoute,
   SyntheticDataRoute: SyntheticDataRoute,
 }
 export const routeTree = rootRouteImport
