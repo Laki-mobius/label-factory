@@ -751,6 +751,122 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_deliveries: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          event: string
+          id: string
+          is_test: boolean
+          project_id: string
+          request_headers: Json
+          request_payload: Json
+          response_body: string | null
+          response_status: number | null
+          success: boolean
+          webhook_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          event: string
+          id?: string
+          is_test?: boolean
+          project_id: string
+          request_headers?: Json
+          request_payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean
+          webhook_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          event?: string
+          id?: string
+          is_test?: boolean
+          project_id?: string
+          request_headers?: Json
+          request_payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhooks: {
+        Row: {
+          auth_header: string
+          auth_token: string | null
+          created_at: string
+          created_by: string | null
+          custom_headers: Json
+          enabled: boolean
+          events: string[]
+          id: string
+          name: string
+          project_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          auth_header?: string
+          auth_token?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_headers?: Json
+          enabled?: boolean
+          events?: string[]
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          auth_header?: string
+          auth_token?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_headers?: Json
+          enabled?: boolean
+          events?: string[]
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
