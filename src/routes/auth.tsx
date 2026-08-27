@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Layers, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import logoAsset from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,9 +99,11 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="panel w-full max-w-sm p-6">
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Layers className="size-4" aria-hidden="true" />
-          </span>
+          <img
+            src={logoAsset.url}
+            alt="LabelFactory"
+            className="size-7 shrink-0 rounded-md object-contain"
+          />
           <span className="text-sm font-semibold tracking-tight">LabelFactory</span>
         </div>
 
