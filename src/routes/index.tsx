@@ -188,7 +188,7 @@ function ProjectsPage() {
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {visible.map((project) => (
             <div key={project.id} className="group relative">
               <button
