@@ -108,7 +108,7 @@ function ProjectsPage() {
       searchValue={search}
       onSearchChange={setSearch}
       actions={
-        <Button className="h-8 text-sm" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-8 text-sm" onClick={() => setOpen(true)}>
           <Plus className="size-3.5" aria-hidden="true" />
           New project
         </Button>
@@ -129,7 +129,7 @@ function ProjectsPage() {
               : "Try a different search term."}
           </p>
           {projects.length === 0 ? (
-            <Button className="mt-4 h-8 text-sm" onClick={() => setOpen(true)}>
+            <Button size="sm" className="mt-4 h-8 text-sm" onClick={() => setOpen(true)}>
               <Plus className="size-3.5" aria-hidden="true" />
               Create project
             </Button>
@@ -226,6 +226,7 @@ function ProjectsPage() {
             <Button
               variant="outline"
              
+              size="sm"
               className="h-8 text-sm"
               onClick={() => setOpen(false)}
             >

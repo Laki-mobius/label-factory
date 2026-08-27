@@ -42,7 +42,7 @@ function ProjectPicker() {
           </Select>
         </div>
       ) : (
-        <Button asChild className="mt-4 h-8 text-sm">
+        <Button asChild size="sm" className="mt-4 h-8 text-sm">
           <Link to="/">Create your first project</Link>
         </Button>
       )}
