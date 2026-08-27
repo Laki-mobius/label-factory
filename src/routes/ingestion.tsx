@@ -85,7 +85,7 @@ type StagedFile = {
   file: File;
   state: "pending" | "uploading" | "uploaded" | "failed";
   progress: number;
-  reason?: string;
+  reason?: string | undefined;
 };
 
 function StatusPill({ value, map }: { value: string; map: Record<string, string> }) {
