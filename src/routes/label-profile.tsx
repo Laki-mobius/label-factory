@@ -527,6 +527,15 @@ function LabelProfileScreen() {
                     {option.selfHosted ? " · recommended" : ""}
                   </SelectItem>
                 ))}
+                {finetunedModels.map((job) => (
+                  <SelectItem
+                    key={job.id}
+                    value={job.result_model as string}
+                    className="text-sm"
+                  >
+                    Finetuned · {job.name} ({job.result_model})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
