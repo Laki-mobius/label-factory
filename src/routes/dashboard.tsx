@@ -200,7 +200,7 @@ function DashboardBody() {
                       {row.profileLabel ? (
                         <span className="text-muted-foreground">{row.profileLabel}</span>
                       ) : (
-                        <span className="text-danger">No profile mapped</span>
+                        <span className="text-destructive">No profile mapped</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -265,13 +265,13 @@ function DashboardBody() {
                 key={item.id}
                 className={
                   item.severity === "danger"
-                    ? "rounded-md border border-danger/40 bg-danger/5 p-3"
+                    ? "rounded-md border border-destructive/40 bg-destructive/5 p-3"
                     : "rounded-md border border-border bg-accent/40 p-3"
                 }
               >
                 <div className="flex items-center gap-1.5">
                   {item.severity === "danger" ? (
-                    <AlertTriangle className="size-3.5 text-danger" aria-hidden="true" />
+                    <AlertTriangle className="size-3.5 text-destructive" aria-hidden="true" />
                   ) : (
                     <Info className="size-3.5 text-muted-foreground" aria-hidden="true" />
                   )}

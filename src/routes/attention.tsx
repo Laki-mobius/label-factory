@@ -86,12 +86,12 @@ function AttentionBody() {
           key={item.id}
           className={
             item.severity === "danger"
-              ? "panel flex flex-wrap items-center gap-3 border-danger/40 p-3"
+              ? "panel flex flex-wrap items-center gap-3 border-destructive/40 p-3"
               : "panel flex flex-wrap items-center gap-3 p-3"
           }
         >
           {item.severity === "danger" ? (
-            <AlertTriangle className="size-4 text-danger" aria-hidden="true" />
+            <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
           ) : (
             <Info className="size-4 text-muted-foreground" aria-hidden="true" />
           )}
