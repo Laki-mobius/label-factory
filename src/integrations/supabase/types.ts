@@ -331,6 +331,83 @@ export type Database = {
         }
         Relationships: []
       }
+      finetune_jobs: {
+        Row: {
+          base_model: string
+          batch_ids: string[]
+          callback_token: string
+          created_at: string
+          created_by: string | null
+          date_from: string | null
+          date_to: string | null
+          document_count: number
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          logs: Json
+          name: string
+          pair_count: number
+          profile_ids: string[]
+          project_id: string
+          result_model: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["finetune_job_status"]
+          updated_at: string
+        }
+        Insert: {
+          base_model: string
+          batch_ids?: string[]
+          callback_token?: string
+          created_at?: string
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          document_count?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: Json
+          name: string
+          pair_count?: number
+          profile_ids?: string[]
+          project_id: string
+          result_model?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["finetune_job_status"]
+          updated_at?: string
+        }
+        Update: {
+          base_model?: string
+          batch_ids?: string[]
+          callback_token?: string
+          created_at?: string
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          document_count?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: Json
+          name?: string
+          pair_count?: number
+          profile_ids?: string[]
+          project_id?: string
+          result_model?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["finetune_job_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finetune_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       label_profiles: {
         Row: {
           created_at: string
@@ -532,6 +609,50 @@ export type Database = {
         }
         Relationships: []
       }
+      rlhf_exports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json
+          format: string
+          id: string
+          name: string
+          pair_count: number
+          payload: Json
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          name: string
+          pair_count?: number
+          payload?: Json
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          name?: string
+          pair_count?: number
+          payload?: Json
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rlhf_exports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       synthetic_records: {
         Row: {
           accepted_document_id: string | null
@@ -679,6 +800,7 @@ export type Database = {
         | "number"
         | "boolean"
         | "multi_value"
+      finetune_job_status: "queued" | "running" | "complete" | "failed"
       member_access: "owner" | "editor" | "viewer"
       profile_status: "draft" | "published" | "archived"
       project_status: "active" | "paused" | "completed" | "archived"
@@ -851,6 +973,7 @@ export const Constants = {
         "boolean",
         "multi_value",
       ],
+      finetune_job_status: ["queued", "running", "complete", "failed"],
       member_access: ["owner", "editor", "viewer"],
       profile_status: ["draft", "published", "archived"],
       project_status: ["active", "paused", "completed", "archived"],
