@@ -42,6 +42,7 @@ export function TopBar({
   const { theme, toggleTheme } = useTheme();
   const { user, isAdmin, signOut } = useAuth();
   const { projects, projectId, setProjectId } = useWorkspace();
+  const { collapsed, toggleCollapsed } = useSidebarState();
 
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase();
 
