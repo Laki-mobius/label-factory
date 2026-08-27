@@ -62,6 +62,124 @@ export type Database = {
           },
         ]
       }
+      benchmark_field_results: {
+        Row: {
+          created_at: string
+          failure_pattern: string | null
+          field_key: string
+          field_label: string | null
+          id: string
+          match_rate: number
+          matched: number
+          mismatches: Json
+          missed: number
+          near_matched: number
+          precision_score: number
+          recall_score: number
+          rejected: number
+          run_id: string
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          failure_pattern?: string | null
+          field_key: string
+          field_label?: string | null
+          id?: string
+          match_rate?: number
+          matched?: number
+          mismatches?: Json
+          missed?: number
+          near_matched?: number
+          precision_score?: number
+          recall_score?: number
+          rejected?: number
+          run_id: string
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          failure_pattern?: string | null
+          field_key?: string
+          field_label?: string | null
+          id?: string
+          match_rate?: number
+          matched?: number
+          mismatches?: Json
+          missed?: number
+          near_matched?: number
+          precision_score?: number
+          recall_score?: number
+          rejected?: number
+          run_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmark_field_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "benchmark_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      benchmark_runs: {
+        Row: {
+          batch_ids: string[]
+          batch_labels: string[]
+          comparisons: number
+          created_at: string
+          created_by: string | null
+          documents_evaluated: number
+          fields_evaluated: number
+          id: string
+          name: string
+          overall_score: number
+          profile_ids: string[]
+          profile_labels: string[]
+          project_id: string
+        }
+        Insert: {
+          batch_ids?: string[]
+          batch_labels?: string[]
+          comparisons?: number
+          created_at?: string
+          created_by?: string | null
+          documents_evaluated?: number
+          fields_evaluated?: number
+          id?: string
+          name: string
+          overall_score?: number
+          profile_ids?: string[]
+          profile_labels?: string[]
+          project_id: string
+        }
+        Update: {
+          batch_ids?: string[]
+          batch_labels?: string[]
+          comparisons?: number
+          created_at?: string
+          created_by?: string | null
+          documents_evaluated?: number
+          fields_evaluated?: number
+          id?: string
+          name?: string
+          overall_score?: number
+          profile_ids?: string[]
+          profile_labels?: string[]
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmark_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           batch_id: string
@@ -70,6 +188,7 @@ export type Database = {
           file_type: string
           filename: string
           id: string
+          is_synthetic: boolean
           page_count: number
           status: Database["public"]["Enums"]["document_status"]
           storage_path: string | null
@@ -83,6 +202,7 @@ export type Database = {
           file_type?: string
           filename: string
           id?: string
+          is_synthetic?: boolean
           page_count?: number
           status?: Database["public"]["Enums"]["document_status"]
           storage_path?: string | null
@@ -96,6 +216,7 @@ export type Database = {
           file_type?: string
           filename?: string
           id?: string
+          is_synthetic?: boolean
           page_count?: number
           status?: Database["public"]["Enums"]["document_status"]
           storage_path?: string | null
@@ -411,6 +532,83 @@ export type Database = {
         }
         Relationships: []
       }
+      synthetic_records: {
+        Row: {
+          accepted_document_id: string | null
+          batch_id: string | null
+          constraints_note: string | null
+          created_at: string
+          created_by: string | null
+          fields: Json
+          id: string
+          label_profile_id: string
+          project_id: string
+          status: Database["public"]["Enums"]["synthetic_record_status"]
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_document_id?: string | null
+          batch_id?: string | null
+          constraints_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          fields?: Json
+          id?: string
+          label_profile_id: string
+          project_id: string
+          status?: Database["public"]["Enums"]["synthetic_record_status"]
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_document_id?: string | null
+          batch_id?: string | null
+          constraints_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          fields?: Json
+          id?: string
+          label_profile_id?: string
+          project_id?: string
+          status?: Database["public"]["Enums"]["synthetic_record_status"]
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synthetic_records_accepted_document_id_fkey"
+            columns: ["accepted_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synthetic_records_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synthetic_records_label_profile_id_fkey"
+            columns: ["label_profile_id"]
+            isOneToOne: false
+            referencedRelation: "label_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synthetic_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -438,6 +636,7 @@ export type Database = {
     }
     Functions: {
       can_access_batch: { Args: { _batch_id: string }; Returns: boolean }
+      can_access_benchmark_run: { Args: { _run_id: string }; Returns: boolean }
       can_access_document: { Args: { _document_id: string }; Returns: boolean }
       can_access_project: { Args: { _project_id: string }; Returns: boolean }
       has_role: {
@@ -483,6 +682,7 @@ export type Database = {
       member_access: "owner" | "editor" | "viewer"
       profile_status: "draft" | "published" | "archived"
       project_status: "active" | "paused" | "completed" | "archived"
+      synthetic_record_status: "pending" | "accepted" | "discarded"
       workspace_type:
         | "finance"
         | "healthcare"
@@ -654,6 +854,7 @@ export const Constants = {
       member_access: ["owner", "editor", "viewer"],
       profile_status: ["draft", "published", "archived"],
       project_status: ["active", "paused", "completed", "archived"],
+      synthetic_record_status: ["pending", "accepted", "discarded"],
       workspace_type: [
         "finance",
         "healthcare",
