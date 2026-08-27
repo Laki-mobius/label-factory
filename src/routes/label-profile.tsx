@@ -194,6 +194,23 @@ function LabelProfileScreen() {
     },
   });
 
+  // Models produced by completed finetuning jobs become selectable here.
+  const finetunedQuery = useQuery({
+    queryKey: ["finetuned-models", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("finetune_jobs")
+        .select("id, name, result_model")
+        .eq("project_id", projectId!)
+        .eq("status", "complete")
+        .not("result_model", "is", null)
+        .order("finished_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).filter((job) => Boolean(job.result_model));
+    },
+  });
+
   const profilesQuery = useQuery({
     queryKey: ["label-profiles", projectId],
     enabled: Boolean(projectId),
