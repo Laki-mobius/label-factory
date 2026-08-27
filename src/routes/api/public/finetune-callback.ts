@@ -60,11 +60,10 @@ export const Route = createFileRoute("/api/public/finetune-callback")({
             result_model: parsed.result_model ?? null,
             error_message: parsed.error_message ?? null,
             logs: nextLogs as unknown as never,
-            started_at: parsed.status === "running" ? new Date().toISOString() : undefined,
-            finished_at:
-              parsed.status === "complete" || parsed.status === "failed"
-                ? new Date().toISOString()
-                : undefined,
+            ...(parsed.status === "running" ? { started_at: new Date().toISOString() } : {}),
+            ...(parsed.status === "complete" || parsed.status === "failed"
+              ? { finished_at: new Date().toISOString() }
+              : {}),
           })
           .eq("id", parsed.job_id);
 

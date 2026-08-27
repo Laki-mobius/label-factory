@@ -21,9 +21,9 @@ export type TrainingPair = {
 };
 
 export type PairFilters = {
-  batchIds?: string[];
-  from?: string | null;
-  to?: string | null;
+  batchIds?: string[] | undefined;
+  from?: string | null | undefined;
+  to?: string | null | undefined;
 };
 
 /**
