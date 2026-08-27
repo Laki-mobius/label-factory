@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
+import { SidebarStateProvider } from "./sidebar-state";
 
 type AppShellProps = {
   title: string;

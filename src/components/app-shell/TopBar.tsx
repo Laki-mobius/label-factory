@@ -22,6 +22,7 @@ import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { useWorkspace } from "@/lib/workspace";
 import { primaryNav, pinnedNav } from "./nav-items";
+import { useSidebarState } from "./sidebar-state";
 
 type TopBarProps = {
   title: string;
