@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus } from "lucide-react";
+import { ArrowRight, EyeOff, FolderPlus, Loader2, Plus, SearchX } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell/AppShell";
 import { WORKSPACE_TYPES, workspaceTypeLabel } from "@/components/app-shell/nav-items";
-import { Badge } from "@/components/ui/badge";
+import { IndustryCover } from "@/components/projects/industry-cover";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,6 +44,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Create and manage document labeling projects for any industry.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ProjectsPage,
@@ -61,14 +63,16 @@ function ProjectsPage() {
   const [description, setDescription] = useState("");
   const [workspaceType, setWorkspaceType] = useState<string>("general");
 
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setWorkspaceType("general");
+  };
+
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return projects.filter(
-      (project) =>
-        !project.archived &&
-        (!term ||
-          project.name.toLowerCase().includes(term) ||
-          (project.description ?? "").toLowerCase().includes(term)),
+      (project) => !project.archived && (!term || project.name.toLowerCase().includes(term)),
     );
   }, [projects, search]);
 
@@ -86,20 +90,61 @@ function ProjectsPage() {
         .select("id")
         .single();
       if (error) throw error;
+
+      // Starter batch: no profile mapped, no documents — the Dashboard flags both.
+      const { error: batchError } = await supabase
+        .from("batches")
+        .insert({ project_id: data.id, name: "Initial Batch" });
+      if (batchError) throw batchError;
+
       return data;
     },
-    onSuccess: async (data) => {
-      toast.success("Project created");
+    onSuccess: async () => {
+      // Intentional: stay on Projects, no auto-navigation into the new project.
       setOpen(false);
-      setName("");
-      setDescription("");
-      setWorkspaceType("general");
+      resetForm();
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      setProjectId(data.id);
+      toast.success("Project created", {
+        description: "Open its card when you're ready to start.",
+      });
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Could not create project"),
   });
+
+  const setArchived = useMutation({
+    mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
+      const { error } = await supabase.from("projects").update({ archived }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not update project"),
+  });
+
+  const archiveProject = (id: string, projectName: string) => {
+    setArchived.mutate(
+      { id, archived: true },
+      {
+        onSuccess: () => {
+          toast.success(`"${projectName}" archived`, {
+            description: "It is hidden from this list but not deleted.",
+            action: {
+              label: "Undo",
+              onClick: () => setArchived.mutate({ id, archived: false }),
+            },
+          });
+        },
+      },
+    );
+  };
+
+  const openProject = (id: string) => {
+    setProjectId(id);
+    void navigate({ to: "/dashboard" });
+  };
 
   return (
     <AppShell
@@ -120,13 +165,20 @@ function ProjectsPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="panel p-10 text-center">
-          <h2 className="text-base font-semibold tracking-tight">
+          <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-primary-soft text-primary-soft-foreground">
+            {projects.length === 0 ? (
+              <FolderPlus className="size-5" aria-hidden="true" />
+            ) : (
+              <SearchX className="size-5" aria-hidden="true" />
+            )}
+          </div>
+          <h2 className="mt-3 text-base font-semibold tracking-tight">
             {projects.length === 0 ? "No projects yet" : "No matching projects"}
           </h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             {projects.length === 0
               ? "A project groups your label profiles, document batches and model connectors for one industry workflow."
-              : "Try a different search term."}
+              : "No project name matches that search. Try a different term."}
           </p>
           {projects.length === 0 ? (
             <Button size="sm" className="mt-4 h-8 text-sm" onClick={() => setOpen(true)}>
@@ -138,41 +190,66 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              onClick={() => {
-                setProjectId(project.id);
-                void navigate({ to: "/label-profile" });
-              }}
-              className="panel p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="truncate text-sm font-semibold tracking-tight">
-                  {project.name}
-                </span>
-                <Badge variant="secondary" className="rounded-full text-2xs font-medium">
-                  {project.status}
-                </Badge>
-              </div>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {project.description || "No description"}
-              </p>
-              <div className="mt-3 text-2xs uppercase tracking-wide text-muted-foreground">
-                {workspaceTypeLabel(project.workspace_type)}
-              </div>
-            </button>
+            <div key={project.id} className="group relative">
+              <button
+                type="button"
+                onClick={() => openProject(project.id)}
+                className="panel flex w-full flex-col p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                aria-label={`Open ${project.name} workspace`}
+              >
+                <IndustryCover workspaceType={project.workspace_type} />
+
+                <div className="mt-3 flex-1">
+                  <div className="truncate text-sm font-semibold tracking-tight">
+                    {project.name}
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {project.description || "No description"}
+                  </p>
+                  <div className="mt-2 text-2xs uppercase tracking-wide text-muted-foreground">
+                    {workspaceTypeLabel(project.workspace_type)}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    Open project workspace
+                    <ArrowRight className="size-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="font-medium text-primary underline-offset-2 group-hover:underline">
+                    Dashboard
+                  </span>
+                </div>
+              </button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-2 size-7 bg-surface/80 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                aria-label={`Archive ${project.name}`}
+                title="Archive project"
+                onClick={() => archiveProject(project.id, project.name)}
+              >
+                <EyeOff className="size-3.5" aria-hidden="true" />
+              </Button>
+            </div>
           ))}
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) resetForm();
+        }}
+      >
         <DialogContent className="sm:max-w-md" aria-describedby="new-project-description">
           <DialogHeader>
             <DialogTitle className="text-base">New project</DialogTitle>
             <DialogDescription id="new-project-description" className="text-sm">
-              Projects scope label profiles, batches and model connectors. Industry is set per
-              project.
+              Projects scope label profiles, batches and model connectors. The industry you pick
+              sets the project's cover art.
             </DialogDescription>
           </DialogHeader>
 
@@ -210,7 +287,7 @@ function ProjectsPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="project-description" className="text-xs font-medium">
-                Description
+                Description <span className="text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
                 id="project-description"
@@ -227,7 +304,10 @@ function ProjectsPage() {
               variant="outline"
               size="sm"
               className="h-8 text-sm"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
@@ -237,7 +317,9 @@ function ProjectsPage() {
               disabled={!name.trim() || createProject.isPending}
               onClick={() => createProject.mutate()}
             >
-              {createProject.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              {createProject.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : null}
               Create project
             </Button>
           </DialogFooter>
