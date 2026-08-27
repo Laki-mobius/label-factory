@@ -76,7 +76,7 @@ export function useAdminSnapshot(enabled: boolean) {
           supabase.from("user_roles").select("user_id,role"),
           supabase.from("project_members").select("project_id,user_id"),
           supabase.from("batches").select("id,project_id"),
-          supabase.from("model_connectors").select("id,name,provider,model_name,kind,project_id,api_key"),
+          supabase.from("model_connectors").select("id,name,provider,model_name,kind,project_id,api_key_hint"),
           supabase.from("webhooks").select("id,name,url,enabled,project_id"),
           supabase
             .from("webhook_deliveries")
@@ -202,7 +202,7 @@ export function useAdminSnapshot(enabled: boolean) {
           model: connector.model_name,
           kind: connector.kind,
           projectId: connector.project_id,
-          hasKey: Boolean(connector.api_key),
+          hasKey: Boolean(connector.api_key_hint),
         })),
         webhooks: (webhooksRes.data ?? []).map((webhook) => ({
           id: webhook.id,

@@ -460,7 +460,8 @@ export type Database = {
       }
       model_connectors: {
         Row: {
-          api_key: string | null
+          api_key_cipher: string | null
+          api_key_hint: string | null
           auth_type: string
           base_url: string | null
           created_at: string
@@ -475,7 +476,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          api_key?: string | null
+          api_key_cipher?: string | null
+          api_key_hint?: string | null
           auth_type?: string
           base_url?: string | null
           created_at?: string
@@ -490,7 +492,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          api_key?: string | null
+          api_key_cipher?: string | null
+          api_key_hint?: string | null
           auth_type?: string
           base_url?: string | null
           created_at?: string
