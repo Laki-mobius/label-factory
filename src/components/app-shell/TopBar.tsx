@@ -22,6 +22,7 @@ import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { useWorkspace } from "@/lib/workspace";
 import { primaryNav, pinnedNav } from "./nav-items";
+import { useSidebarState } from "./sidebar-state";
 
 type TopBarProps = {
   title: string;
@@ -41,11 +42,23 @@ export function TopBar({
   const { theme, toggleTheme } = useTheme();
   const { user, isAdmin, signOut } = useAuth();
   const { projects, projectId, setProjectId } = useWorkspace();
+  const { collapsed, toggleCollapsed } = useSidebarState();
 
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden size-8 md:inline-flex"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!collapsed}
+      >
+        <Menu className="size-4" />
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild className="md:hidden">
           <Button variant="ghost" size="icon" className="size-8" aria-label="Open navigation">
