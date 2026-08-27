@@ -10,33 +10,180 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AnnotateRouteImport } from './routes/annotate'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BenchmarkingRouteImport } from './routes/benchmarking'
+import { Route as ExportRouteImport } from './routes/export'
+import { Route as FinetuningRouteImport } from './routes/finetuning'
+import { Route as IngestionRouteImport } from './routes/ingestion'
+import { Route as LabelProfileRouteImport } from './routes/label-profile'
+import { Route as RlhfRouteImport } from './routes/rlhf'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SyntheticDataRouteImport } from './routes/synthetic-data'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnnotateRoute = AnnotateRouteImport.update({
+  id: '/annotate',
+  path: '/annotate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BenchmarkingRoute = BenchmarkingRouteImport.update({
+  id: '/benchmarking',
+  path: '/benchmarking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinetuningRoute = FinetuningRouteImport.update({
+  id: '/finetuning',
+  path: '/finetuning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IngestionRoute = IngestionRouteImport.update({
+  id: '/ingestion',
+  path: '/ingestion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabelProfileRoute = LabelProfileRouteImport.update({
+  id: '/label-profile',
+  path: '/label-profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RlhfRoute = RlhfRouteImport.update({
+  id: '/rlhf',
+  path: '/rlhf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SyntheticDataRoute = SyntheticDataRouteImport.update({
+  id: '/synthetic-data',
+  path: '/synthetic-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/annotate': typeof AnnotateRoute
+  '/auth': typeof AuthRoute
+  '/benchmarking': typeof BenchmarkingRoute
+  '/export': typeof ExportRoute
+  '/finetuning': typeof FinetuningRoute
+  '/ingestion': typeof IngestionRoute
+  '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
+  '/settings': typeof SettingsRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/annotate': typeof AnnotateRoute
+  '/auth': typeof AuthRoute
+  '/benchmarking': typeof BenchmarkingRoute
+  '/export': typeof ExportRoute
+  '/finetuning': typeof FinetuningRoute
+  '/ingestion': typeof IngestionRoute
+  '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
+  '/settings': typeof SettingsRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/annotate': typeof AnnotateRoute
+  '/auth': typeof AuthRoute
+  '/benchmarking': typeof BenchmarkingRoute
+  '/export': typeof ExportRoute
+  '/finetuning': typeof FinetuningRoute
+  '/ingestion': typeof IngestionRoute
+  '/label-profile': typeof LabelProfileRoute
+  '/rlhf': typeof RlhfRoute
+  '/settings': typeof SettingsRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/annotate'
+    | '/auth'
+    | '/benchmarking'
+    | '/export'
+    | '/finetuning'
+    | '/ingestion'
+    | '/label-profile'
+    | '/rlhf'
+    | '/settings'
+    | '/synthetic-data'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/annotate'
+    | '/auth'
+    | '/benchmarking'
+    | '/export'
+    | '/finetuning'
+    | '/ingestion'
+    | '/label-profile'
+    | '/rlhf'
+    | '/settings'
+    | '/synthetic-data'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/annotate'
+    | '/auth'
+    | '/benchmarking'
+    | '/export'
+    | '/finetuning'
+    | '/ingestion'
+    | '/label-profile'
+    | '/rlhf'
+    | '/settings'
+    | '/synthetic-data'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AnnotateRoute: typeof AnnotateRoute
+  AuthRoute: typeof AuthRoute
+  BenchmarkingRoute: typeof BenchmarkingRoute
+  ExportRoute: typeof ExportRoute
+  FinetuningRoute: typeof FinetuningRoute
+  IngestionRoute: typeof IngestionRoute
+  LabelProfileRoute: typeof LabelProfileRoute
+  RlhfRoute: typeof RlhfRoute
+  SettingsRoute: typeof SettingsRoute
+  SyntheticDataRoute: typeof SyntheticDataRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +195,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/annotate': {
+      id: '/annotate'
+      path: '/annotate'
+      fullPath: '/annotate'
+      preLoaderRoute: typeof AnnotateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/benchmarking': {
+      id: '/benchmarking'
+      path: '/benchmarking'
+      fullPath: '/benchmarking'
+      preLoaderRoute: typeof BenchmarkingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finetuning': {
+      id: '/finetuning'
+      path: '/finetuning'
+      fullPath: '/finetuning'
+      preLoaderRoute: typeof FinetuningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ingestion': {
+      id: '/ingestion'
+      path: '/ingestion'
+      fullPath: '/ingestion'
+      preLoaderRoute: typeof IngestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/label-profile': {
+      id: '/label-profile'
+      path: '/label-profile'
+      fullPath: '/label-profile'
+      preLoaderRoute: typeof LabelProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rlhf': {
+      id: '/rlhf'
+      path: '/rlhf'
+      fullPath: '/rlhf'
+      preLoaderRoute: typeof RlhfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/synthetic-data': {
+      id: '/synthetic-data'
+      path: '/synthetic-data'
+      fullPath: '/synthetic-data'
+      preLoaderRoute: typeof SyntheticDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AnnotateRoute: AnnotateRoute,
+  AuthRoute: AuthRoute,
+  BenchmarkingRoute: BenchmarkingRoute,
+  ExportRoute: ExportRoute,
+  FinetuningRoute: FinetuningRoute,
+  IngestionRoute: IngestionRoute,
+  LabelProfileRoute: LabelProfileRoute,
+  RlhfRoute: RlhfRoute,
+  SettingsRoute: SettingsRoute,
+  SyntheticDataRoute: SyntheticDataRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
