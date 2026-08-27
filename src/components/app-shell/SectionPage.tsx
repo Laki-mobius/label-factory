@@ -54,6 +54,7 @@ type SectionPageProps = {
   title: string;
   description: string;
   projectScoped?: boolean;
+  actions?: ReactNode;
   children?: ReactNode;
 };
 
@@ -65,31 +66,40 @@ export function SectionPage({
   title,
   description,
   projectScoped = true,
+  actions,
   children,
 }: SectionPageProps) {
   const { projectId, ready, projectsLoading, activeProject } = useWorkspace();
 
   let body: ReactNode;
+  let showActions = Boolean(actions);
   if (!projectScoped) {
     body = children ?? <Placeholder title={title} description={description} />;
   } else if (!ready || projectsLoading) {
+    showActions = false;
     body = (
       <div className="flex justify-center py-16">
         <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading" />
       </div>
     );
   } else if (!projectId || !activeProject) {
+    showActions = false;
     body = <ProjectPicker />;
   } else {
     body = children ?? <Placeholder title={title} description={description} />;
   }
 
   return (
-    <AppShell title={title} showProjectSwitcher={projectScoped}>
+    <AppShell
+      title={title}
+      showProjectSwitcher={projectScoped}
+      actions={showActions ? actions : undefined}
+    >
       {body}
     </AppShell>
   );
 }
+
 
 function Placeholder({ title, description }: { title: string; description: string }) {
   return (
