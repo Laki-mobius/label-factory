@@ -10,7 +10,7 @@ import { useProjectDashboard } from "@/lib/dashboard-data";
 export const Route = createFileRoute("/attention")({
   head: () => ({
     meta: [
-      { title: "Attention Queue — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

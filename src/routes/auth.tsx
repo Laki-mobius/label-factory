@@ -18,7 +18,7 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Sign in — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       { name: "description", content: "Sign in to your LabelFactory workspace to label documents." },
       { property: "og:title", content: "Sign in — LabelFactory" },
       {

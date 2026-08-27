@@ -51,7 +51,7 @@ import { formatBytes, useAdminSnapshot, type AdminProject, type AdminUser } from
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Admin Console — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/label-profile")({
   head: () => ({
     meta: [
-      { title: "Label Profile — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/synthetic-data")({
   head: () => ({
     meta: [
-      { title: "Synthetic Data — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

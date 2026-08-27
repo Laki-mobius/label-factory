@@ -41,7 +41,7 @@ import { useWorkspace } from "@/lib/workspace";
 export const Route = createFileRoute("/finetuning")({
   head: () => ({
     meta: [
-      { title: "Finetuning — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

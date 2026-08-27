@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/ingestion")({
   head: () => ({
     meta: [
-      { title: "Ingestion — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:

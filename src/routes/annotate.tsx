@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/annotate")({
   head: () => ({
     meta: [
-      { title: "Annotate & Label — LabelFactory" },
+      { title: "Label Factory | AI Data Labelling & Feedback Platform" },
       {
         name: "description",
         content:
