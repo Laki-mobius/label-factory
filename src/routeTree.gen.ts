@@ -23,6 +23,7 @@ import { Route as LabelProfileRouteImport } from './routes/label-profile'
 import { Route as RlhfRouteImport } from './routes/rlhf'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SyntheticDataRouteImport } from './routes/synthetic-data'
+import { Route as ApiPublicFinetuneCallbackRouteImport } from './routes/api/public/finetune-callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +95,12 @@ const SyntheticDataRoute = SyntheticDataRouteImport.update({
   path: '/synthetic-data',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicFinetuneCallbackRoute =
+  ApiPublicFinetuneCallbackRouteImport.update({
+    id: '/api/public/finetune-callback',
+    path: '/api/public/finetune-callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/rlhf': typeof RlhfRoute
   '/settings': typeof SettingsRoute
   '/synthetic-data': typeof SyntheticDataRoute
+  '/api/public/finetune-callback': typeof ApiPublicFinetuneCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +134,7 @@ export interface FileRoutesByTo {
   '/rlhf': typeof RlhfRoute
   '/settings': typeof SettingsRoute
   '/synthetic-data': typeof SyntheticDataRoute
+  '/api/public/finetune-callback': typeof ApiPublicFinetuneCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +152,7 @@ export interface FileRoutesById {
   '/rlhf': typeof RlhfRoute
   '/settings': typeof SettingsRoute
   '/synthetic-data': typeof SyntheticDataRoute
+  '/api/public/finetune-callback': typeof ApiPublicFinetuneCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/rlhf'
     | '/settings'
     | '/synthetic-data'
+    | '/api/public/finetune-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/rlhf'
     | '/settings'
     | '/synthetic-data'
+    | '/api/public/finetune-callback'
   id:
     | '__root__'
     | '/'
@@ -193,6 +205,7 @@ export interface FileRouteTypes {
     | '/rlhf'
     | '/settings'
     | '/synthetic-data'
+    | '/api/public/finetune-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +223,7 @@ export interface RootRouteChildren {
   RlhfRoute: typeof RlhfRoute
   SettingsRoute: typeof SettingsRoute
   SyntheticDataRoute: typeof SyntheticDataRoute
+  ApiPublicFinetuneCallbackRoute: typeof ApiPublicFinetuneCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SyntheticDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/finetune-callback': {
+      id: '/api/public/finetune-callback'
+      path: '/api/public/finetune-callback'
+      fullPath: '/api/public/finetune-callback'
+      preLoaderRoute: typeof ApiPublicFinetuneCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +351,7 @@ const rootRouteChildren: RootRouteChildren = {
   RlhfRoute: RlhfRoute,
   SettingsRoute: SettingsRoute,
   SyntheticDataRoute: SyntheticDataRoute,
+  ApiPublicFinetuneCallbackRoute: ApiPublicFinetuneCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

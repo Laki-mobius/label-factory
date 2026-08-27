@@ -194,6 +194,23 @@ function LabelProfileScreen() {
     },
   });
 
+  // Models produced by completed finetuning jobs become selectable here.
+  const finetunedQuery = useQuery({
+    queryKey: ["finetuned-models", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("finetune_jobs")
+        .select("id, name, result_model")
+        .eq("project_id", projectId!)
+        .eq("status", "complete")
+        .not("result_model", "is", null)
+        .order("finished_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).filter((job) => Boolean(job.result_model));
+    },
+  });
+
   const profilesQuery = useQuery({
     queryKey: ["label-profiles", projectId],
     enabled: Boolean(projectId),
@@ -269,9 +286,10 @@ function LabelProfileScreen() {
     );
   }
 
-  const resolvedModel = MODELS.find((m) => m.value === model)?.selfHosted
-    ? FALLBACK_MODEL
-    : model;
+  const finetunedModels = finetunedQuery.data ?? [];
+  const isFinetuned = finetunedModels.some((job) => job.result_model === model);
+  const resolvedModel =
+    isFinetuned || MODELS.find((m) => m.value === model)?.selfHosted ? FALLBACK_MODEL : model;
 
   const runFromType = useServerFn(generateFieldsFromType);
   const runFromSample = useServerFn(generateFieldsFromSample);
@@ -509,6 +527,15 @@ function LabelProfileScreen() {
                     {option.selfHosted ? " · recommended" : ""}
                   </SelectItem>
                 ))}
+                {finetunedModels.map((job) => (
+                  <SelectItem
+                    key={job.id}
+                    value={job.result_model as string}
+                    className="text-sm"
+                  >
+                    Finetuned · {job.name} ({job.result_model})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -561,7 +588,9 @@ function LabelProfileScreen() {
           </Button>
         </div>
         <p className="mt-2 text-2xs text-muted-foreground">
-          {MODELS.find((m) => m.value === model)?.hint}
+          {isFinetuned
+            ? "Finetuned model from this project. It is served by your external trainer; schema generation here falls back to a hosted model."
+            : MODELS.find((m) => m.value === model)?.hint}
         </p>
 
         {sampleMutation.isPending ? (
