@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnnotateRouteImport } from './routes/annotate'
+import { Route as AttentionRouteImport } from './routes/attention'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenchmarkingRouteImport } from './routes/benchmarking'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -36,6 +37,11 @@ const AdminRoute = AdminRouteImport.update({
 const AnnotateRoute = AnnotateRouteImport.update({
   id: '/annotate',
   path: '/annotate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttentionRoute = AttentionRouteImport.update({
+  id: '/attention',
+  path: '/attention',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/annotate': typeof AnnotateRoute
+  '/attention': typeof AttentionRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
   '/dashboard': typeof DashboardRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/annotate': typeof AnnotateRoute
+  '/attention': typeof AttentionRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
   '/dashboard': typeof DashboardRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/annotate': typeof AnnotateRoute
+  '/attention': typeof AttentionRoute
   '/auth': typeof AuthRoute
   '/benchmarking': typeof BenchmarkingRoute
   '/dashboard': typeof DashboardRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/annotate'
+    | '/attention'
     | '/auth'
     | '/benchmarking'
     | '/dashboard'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/annotate'
+    | '/attention'
     | '/auth'
     | '/benchmarking'
     | '/dashboard'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/annotate'
+    | '/attention'
     | '/auth'
     | '/benchmarking'
     | '/dashboard'
@@ -187,6 +199,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AnnotateRoute: typeof AnnotateRoute
+  AttentionRoute: typeof AttentionRoute
   AuthRoute: typeof AuthRoute
   BenchmarkingRoute: typeof BenchmarkingRoute
   DashboardRoute: typeof DashboardRoute
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/annotate'
       fullPath: '/annotate'
       preLoaderRoute: typeof AnnotateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attention': {
+      id: '/attention'
+      path: '/attention'
+      fullPath: '/attention'
+      preLoaderRoute: typeof AttentionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -299,6 +319,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AnnotateRoute: AnnotateRoute,
+  AttentionRoute: AttentionRoute,
   AuthRoute: AuthRoute,
   BenchmarkingRoute: BenchmarkingRoute,
   DashboardRoute: DashboardRoute,
