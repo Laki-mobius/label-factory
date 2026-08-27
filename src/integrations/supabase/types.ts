@@ -65,6 +65,8 @@ export type Database = {
       documents: {
         Row: {
           batch_id: string
+          error_message: string | null
+          extracted_text: string | null
           file_type: string
           filename: string
           id: string
@@ -76,6 +78,8 @@ export type Database = {
         }
         Insert: {
           batch_id: string
+          error_message?: string | null
+          extracted_text?: string | null
           file_type?: string
           filename: string
           id?: string
@@ -87,6 +91,8 @@ export type Database = {
         }
         Update: {
           batch_id?: string
+          error_message?: string | null
+          extracted_text?: string | null
           file_type?: string
           filename?: string
           id?: string
@@ -112,6 +118,7 @@ export type Database = {
           created_at: string
           data_type: Database["public"]["Enums"]["field_data_type"]
           document_id: string
+          evidence_bbox: Json | null
           evidence_page: number | null
           evidence_snippet: string | null
           field_key: string
@@ -129,6 +136,7 @@ export type Database = {
           created_at?: string
           data_type?: Database["public"]["Enums"]["field_data_type"]
           document_id: string
+          evidence_bbox?: Json | null
           evidence_page?: number | null
           evidence_snippet?: string | null
           field_key: string
@@ -146,6 +154,7 @@ export type Database = {
           created_at?: string
           data_type?: Database["public"]["Enums"]["field_data_type"]
           document_id?: string
+          evidence_bbox?: Json | null
           evidence_page?: number | null
           evidence_snippet?: string | null
           field_key?: string
