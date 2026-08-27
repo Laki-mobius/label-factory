@@ -1,0 +1,11 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.projects TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_members TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.batches TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.documents TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.extractions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.label_profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.model_connectors TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.field_library TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
+GRANT SELECT ON public.user_roles TO authenticated;
+GRANT ALL ON public.projects, public.project_members, public.batches, public.documents, public.extractions, public.label_profiles, public.model_connectors, public.field_library, public.profiles, public.user_roles TO service_role;
