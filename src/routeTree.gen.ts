@@ -14,6 +14,7 @@ import { Route as AnnotateRouteImport } from './routes/annotate'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as LabelProfileRouteImport } from './routes/label-profile'
+import { Route as SyntheticDataRouteImport } from './routes/synthetic-data'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const LabelProfileRoute = LabelProfileRouteImport.update({
   path: '/label-profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SyntheticDataRoute = SyntheticDataRouteImport.update({
+  id: '/synthetic-data',
+  path: '/synthetic-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/ingestion': typeof IngestionRoute
   '/label-profile': typeof LabelProfileRoute
+  '/synthetic-data': typeof SyntheticDataRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/annotate' | '/auth' | '/ingestion' | '/label-profile'
+  fullPaths:
+    | '/'
+    | '/annotate'
+    | '/auth'
+    | '/ingestion'
+    | '/label-profile'
+    | '/synthetic-data'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/annotate' | '/auth' | '/ingestion' | '/label-profile'
-  id: '__root__' | '/' | '/annotate' | '/auth' | '/ingestion' | '/label-profile'
+  to:
+    | '/'
+    | '/annotate'
+    | '/auth'
+    | '/ingestion'
+    | '/label-profile'
+    | '/synthetic-data'
+  id:
+    | '__root__'
+    | '/'
+    | '/annotate'
+    | '/auth'
+    | '/ingestion'
+    | '/label-profile'
+    | '/synthetic-data'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   IngestionRoute: typeof IngestionRoute
   LabelProfileRoute: typeof LabelProfileRoute
+  SyntheticDataRoute: typeof SyntheticDataRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LabelProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/synthetic-data': {
+      id: '/synthetic-data'
+      path: '/synthetic-data'
+      fullPath: '/synthetic-data'
+      preLoaderRoute: typeof SyntheticDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   IngestionRoute: IngestionRoute,
   LabelProfileRoute: LabelProfileRoute,
+  SyntheticDataRoute: SyntheticDataRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
