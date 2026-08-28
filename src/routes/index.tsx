@@ -5,7 +5,7 @@ import { ArrowRight, EyeOff, FolderPlus, Loader2, Plus, SearchX } from "lucide-r
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell/AppShell";
-import { WORKSPACE_TYPES, workspaceTypeLabel } from "@/components/app-shell/nav-items";
+import { WORKSPACE_TYPES } from "@/components/app-shell/nav-items";
 import { IndustryCover } from "@/components/projects/industry-cover";
 import { Button } from "@/components/ui/button";
 import {
