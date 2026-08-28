@@ -188,51 +188,14 @@ function ProjectsPage() {
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid auto-rows-fr items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {visible.map((project) => (
-            <div key={project.id} className="group relative">
-              <button
-                type="button"
-                onClick={() => openProject(project.id)}
-                className="panel flex w-full flex-col p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
-                aria-label={`Open ${project.name} workspace`}
-              >
-                <IndustryCover workspaceType={project.workspace_type} />
-
-                <div className="mt-3 flex-1">
-                  <div className="truncate text-sm font-semibold tracking-tight">
-                    {project.name}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {project.description || "No description"}
-                  </p>
-                  <div className="mt-2 text-2xs uppercase tracking-wide text-muted-foreground">
-                    {workspaceTypeLabel(project.workspace_type)}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    Open project workspace
-                    <ArrowRight className="size-3.5" aria-hidden="true" />
-                  </span>
-                  <span className="font-medium text-primary underline-offset-2 group-hover:underline">
-                    Dashboard
-                  </span>
-                </div>
-              </button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-2 size-7 bg-surface/80 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                aria-label={`Archive ${project.name}`}
-                title="Archive project"
-                onClick={() => archiveProject(project.id, project.name)}
-              >
-                <EyeOff className="size-3.5" aria-hidden="true" />
-              </Button>
-            </div>
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onOpen={() => openProject(project.id)}
+              onArchive={() => archiveProject(project.id, project.name)}
+            />
           ))}
         </div>
       )}
