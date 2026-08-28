@@ -39,7 +39,7 @@ export function IndustryCover({
   return (
     <div
       className={cn(
-        "relative flex h-24 items-center justify-center overflow-hidden rounded-md border border-border bg-primary-soft",
+        "relative flex h-36 items-center justify-center overflow-hidden rounded-md border border-border bg-primary-soft",
         className,
       )}
     >
