@@ -5,7 +5,7 @@ import { ArrowRight, EyeOff, FolderPlus, Loader2, Plus, SearchX } from "lucide-r
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell/AppShell";
-import { WORKSPACE_TYPES, workspaceTypeLabel } from "@/components/app-shell/nav-items";
+import { WORKSPACE_TYPES } from "@/components/app-shell/nav-items";
 import { IndustryCover } from "@/components/projects/industry-cover";
 import { Button } from "@/components/ui/button";
 import {
@@ -352,9 +352,6 @@ function ProjectCard({ project, onOpen, onArchive }: ProjectCardProps) {
               {expanded ? "Show less" : "Show more"}
             </button>
           ) : null}
-          <div className="mt-2 text-2xs uppercase tracking-wide text-muted-foreground">
-            {workspaceTypeLabel(project.workspace_type)}
-          </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
