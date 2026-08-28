@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -43,6 +43,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && session) {
@@ -96,104 +97,157 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="panel w-full max-w-sm p-6">
-        <div className="flex items-center gap-2">
+    <div className="grid min-h-screen lg:grid-cols-2">
+      {/* Brand panel */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary-soft p-10 lg:flex">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-primary/5"
+        />
+        <div className="relative flex items-center gap-3">
           <img
             src={logoAsset.url}
             alt="LabelFactory"
-            className="size-7 shrink-0 rounded-md object-contain"
+            className="size-10 shrink-0 rounded-md object-contain"
           />
-          <span className="text-sm font-semibold tracking-tight">LabelFactory</span>
+          <div>
+            <div className="text-base font-semibold tracking-tight text-primary-soft-foreground">
+              LabelFactory
+            </div>
+            <div className="text-xs text-primary-soft-foreground/70">Platform</div>
+          </div>
         </div>
 
-        <h1 className="mt-5 text-lg font-semibold tracking-tight">
-          {mode === "signin" ? "Sign in" : "Create your account"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin"
-            ? "Access your labeling workspaces."
-            : "Set up an account to start labeling documents."}
-        </p>
+        <div className="relative max-w-md">
+          <h2 className="text-3xl font-semibold leading-tight tracking-tight text-primary-soft-foreground">
+            Turning raw documents into structured, trustworthy data
+          </h2>
+          <p className="mt-4 text-sm text-primary-soft-foreground/80">
+            AI-assisted labelling, human review, and RLHF feedback in one workspace.
+          </p>
+        </div>
 
-        <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
-          {mode === "signup" ? (
+        <div className="relative text-xs text-primary-soft-foreground/70">
+          LabelFactory Platform
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center bg-background px-6 py-12">
+        <div className="w-full max-w-sm">
+          <div className="flex items-center gap-2 lg:hidden">
+            <img
+              src={logoAsset.url}
+              alt="LabelFactory"
+              className="size-7 shrink-0 rounded-md object-contain"
+            />
+            <span className="text-sm font-semibold tracking-tight">LabelFactory</span>
+          </div>
+
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight lg:mt-0">
+            {mode === "signin" ? "Login" : "Create your account"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {mode === "signin"
+              ? "Sign in to your LabelFactory workspace."
+              : "Set up an account to start labeling documents."}
+          </p>
+
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            {mode === "signup" ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName" className="text-xs font-medium">
+                  Full name
+                </Label>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  className="h-10 text-sm"
+                  autoComplete="name"
+                />
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
-              <Label htmlFor="fullName" className="text-xs font-medium">
-                Full name
+              <Label htmlFor="email" className="text-xs font-medium">
+                Email
               </Label>
               <Input
-                id="fullName"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                className="h-9 text-sm"
-                autoComplete="name"
+                id="email"
+                type="email"
+                required
+                placeholder="you@company.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="h-10 bg-surface text-sm"
+                autoComplete="email"
               />
             </div>
-          ) : null}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-medium">
-              Work email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-9 text-sm"
-              autoComplete="email"
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium">
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={6}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-10 bg-surface pr-10 text-sm"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={busy} className="h-10 w-full text-sm">
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {mode === "signin" ? "Login" : "Create account"}
+            </Button>
+          </form>
+
+          <div className="my-4 flex items-center gap-3 text-2xs uppercase tracking-wide text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-medium">
-              Password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="h-9 text-sm"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            />
-          </div>
-
-          <Button type="submit" disabled={busy} className="h-9 w-full text-sm">
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-            {mode === "signin" ? "Sign in" : "Create account"}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full text-sm"
+            onClick={() => void handleGoogle()}
+            disabled={busy}
+          >
+            Continue with Google
           </Button>
-        </form>
 
-        <div className="my-4 flex items-center gap-3 text-2xs uppercase tracking-wide text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Don't have access? Contact your workspace administrator.
+          </p>
+
+          <button
+            type="button"
+            className="mt-3 w-full rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          >
+            {mode === "signin"
+              ? "Don't have an account? Create one"
+              : "Already have an account? Sign in"}
+          </button>
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9 w-full text-sm"
-          onClick={() => void handleGoogle()}
-          disabled={busy}
-        >
-          Continue with Google
-        </Button>
-
-        <button
-          type="button"
-          className="mt-4 w-full rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        >
-          {mode === "signin"
-            ? "Don't have an account? Create one"
-            : "Already have an account? Sign in"}
-        </button>
       </div>
     </div>
   );
