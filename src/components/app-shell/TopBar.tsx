@@ -117,6 +117,8 @@ export function TopBar({
           </div>
         ) : null}
 
+        {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+
         <Button
           variant="ghost"
           size="icon"
