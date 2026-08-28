@@ -30,6 +30,7 @@ type TopBarProps = {
   searchPlaceholder?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  actions?: React.ReactNode;
 };
 
 export function TopBar({
@@ -38,6 +39,7 @@ export function TopBar({
   searchPlaceholder,
   searchValue,
   onSearchChange,
+  actions,
 }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
   const { user, isAdmin, signOut } = useAuth();
