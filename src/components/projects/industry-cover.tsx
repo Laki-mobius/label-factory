@@ -48,7 +48,7 @@ export function IndustryCover({
         className="absolute inset-0 bg-gradient-to-br from-primary/15 via-transparent to-primary/5"
       />
       <Icon
-        className="relative size-8 text-primary-soft-foreground"
+        className="relative size-12 text-primary-soft-foreground"
         aria-label={`${caption} project cover`}
       />
       <span className="absolute bottom-1.5 right-2 text-2xs font-medium uppercase tracking-wide text-primary-soft-foreground/80">
