@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, EyeOff, FolderPlus, Loader2, Plus, SearchX } from "lucide-react";
@@ -289,5 +289,95 @@ function ProjectsPage() {
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+type ProjectCardProps = {
+  project: {
+    id: string;
+    name: string;
+    description: string | null;
+    workspace_type: string;
+  };
+  onOpen: () => void;
+  onArchive: () => void;
+};
+
+/** Fixed-height card: cover, 4-line clamped description with show more/less, footer pinned. */
+function ProjectCard({ project, onOpen, onArchive }: ProjectCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const descRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    const node = descRef.current;
+    if (!node) return;
+    setClamped(node.scrollHeight - node.clientHeight > 2);
+  }, [project.description]);
+
+  return (
+    <div className="group relative h-full">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpen();
+          }
+        }}
+        className="panel flex h-full w-full cursor-pointer flex-col p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+        aria-label={`Open ${project.name} workspace`}
+      >
+        <IndustryCover workspaceType={project.workspace_type} />
+
+        <div className="mt-3 flex-1">
+          <div className="truncate text-sm font-semibold tracking-tight">{project.name}</div>
+          <p
+            ref={descRef}
+            className={`mt-1 text-xs text-muted-foreground ${expanded ? "" : "line-clamp-4"}`}
+          >
+            {project.description || "No description"}
+          </p>
+          {clamped || expanded ? (
+            <button
+              type="button"
+              className="mt-1 rounded-sm text-2xs font-medium text-primary underline-offset-2 hover:underline"
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpanded((value) => !value);
+              }}
+            >
+              {expanded ? "Show less" : "Show more"}
+            </button>
+          ) : null}
+          <div className="mt-2 text-2xs uppercase tracking-wide text-muted-foreground">
+            {workspaceTypeLabel(project.workspace_type)}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            Open project workspace
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </span>
+          <span className="font-medium text-primary underline-offset-2 group-hover:underline">
+            Dashboard
+          </span>
+        </div>
+      </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-2 top-2 size-7 bg-surface/80 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+        aria-label={`Archive ${project.name}`}
+        title="Archive project"
+        onClick={onArchive}
+      >
+        <EyeOff className="size-3.5" aria-hidden="true" />
+      </Button>
+    </div>
   );
 }
