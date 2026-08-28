@@ -41,11 +41,8 @@ export function AppShell({ title, children, actions, ...topBarProps }: AppShellP
       <div className="flex min-h-screen bg-background">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar title={title} {...topBarProps} />
-          <main className="flex-1 p-5">
-            {actions ? <div className="mb-4 flex justify-end gap-2">{actions}</div> : null}
-            {children}
-          </main>
+          <TopBar title={title} actions={actions} {...topBarProps} />
+          <main className="flex-1 p-5">{children}</main>
         </div>
       </div>
     </SidebarStateProvider>
