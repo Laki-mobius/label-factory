@@ -352,9 +352,6 @@ function ProjectCard({ project, onOpen, onArchive }: ProjectCardProps) {
               {expanded ? "Show less" : "Show more"}
             </button>
           ) : null}
-          <div className="mt-2 text-2xs uppercase tracking-wide text-muted-foreground">
-            {workspaceTypeLabel(project.workspace_type)}
-          </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
