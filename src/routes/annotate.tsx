@@ -361,7 +361,7 @@ function AnnotateBody() {
           <Button
             size="sm"
             variant="ghost"
-            className="size-7 p-0"
+            className="size-7 bg-primary/10 p-0 text-primary hover:bg-primary/20"
             aria-label={queueOpen ? "Collapse queue panel" : "Expand queue panel"}
             onClick={() => setQueueOpen((value) => !value)}
           >
