@@ -452,6 +452,18 @@ function AnnotateBody() {
               ))}
             </ul>
           )}
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 size-7 p-0"
+              aria-label="Expand queue panel"
+              onClick={() => setQueueOpen(true)}
+            >
+              <ChevronRight className="size-3.5" />
+            </Button>
+          )}
         </div>
 
         {/* Viewer */}
