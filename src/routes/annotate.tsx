@@ -386,9 +386,11 @@ function AnnotateBody() {
         )}
       >
         {/* Queue */}
-        <div className="panel p-3">
-          <Label className="text-xs text-muted-foreground">Batch</Label>
-          <Select
+        <div className={cn("panel flex flex-col", queueOpen ? "p-3" : "items-center px-1.5 py-3")}>
+          {queueOpen ? (
+            <>
+              <Label className="text-xs text-muted-foreground">Batch</Label>
+              <Select
             value={activeBatchId ?? ""}
             onValueChange={(value) => {
               setBatchId(value);
