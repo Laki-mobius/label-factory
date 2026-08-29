@@ -91,12 +91,6 @@ function ProjectsPage() {
         .single();
       if (error) throw error;
 
-      // Starter batch: no profile mapped, no documents — the Dashboard flags both.
-      const { error: batchError } = await supabase
-        .from("batches")
-        .insert({ project_id: data.id, name: "Initial Batch" });
-      if (batchError) throw batchError;
-
       return data;
     },
     onSuccess: async () => {
@@ -336,7 +330,7 @@ function ProjectCard({ project, onOpen, onArchive }: ProjectCardProps) {
           <div className="truncate text-sm font-semibold tracking-tight">{project.name}</div>
           <p
             ref={descRef}
-            className={`mt-1 text-xs text-muted-foreground ${expanded ? "" : "line-clamp-4"}`}
+            className={`mt-1 text-xs text-muted-foreground ${expanded ? "" : "line-clamp-3"}`}
           >
             {project.description || "No description"}
           </p>
