@@ -357,7 +357,16 @@ function AnnotateBody() {
     <div className="space-y-4">
       {/* Header strip */}
       <div className="panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-sm">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="size-7 p-0"
+            aria-label={queueOpen ? "Collapse queue panel" : "Expand queue panel"}
+            onClick={() => setQueueOpen((value) => !value)}
+          >
+            {queueOpen ? <ChevronLeft className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </Button>
           <span className="font-semibold tabular-nums">
             {reviewedCount} / {allDocuments.length} reviewed
           </span>
@@ -370,7 +379,12 @@ function AnnotateBody() {
         </span>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[240px_1fr_420px]">
+      <div
+        className={cn(
+          "grid gap-4",
+          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[48px_1fr_420px]",
+        )}
+      >
         {/* Queue */}
         <div className="panel p-3">
           <Label className="text-xs text-muted-foreground">Batch</Label>
