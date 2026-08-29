@@ -381,16 +381,19 @@ function AnnotateBody() {
 
       <div
         className={cn(
-          "grid gap-4",
-          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[48px_1fr_420px]",
+          "grid gap-4 transition-all",
+          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[0px_1fr_420px]",
         )}
       >
         {/* Queue */}
-        <div className={cn("panel flex flex-col", queueOpen ? "p-3" : "items-center px-1.5 py-3")}>
-          {queueOpen ? (
-            <>
-              <Label className="text-xs text-muted-foreground">Batch</Label>
-              <Select
+        <div
+          className={cn(
+            "panel flex flex-col overflow-hidden",
+            queueOpen ? "p-3" : "w-0 border-0 bg-transparent p-0 shadow-none",
+          )}
+        >
+          <Label className="text-xs text-muted-foreground">Batch</Label>
+          <Select
             value={activeBatchId ?? ""}
             onValueChange={(value) => {
               setBatchId(value);
@@ -451,18 +454,6 @@ function AnnotateBody() {
                 </li>
               ))}
             </ul>
-          )}
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="mt-2 size-7 p-0"
-              aria-label="Expand queue panel"
-              onClick={() => setQueueOpen(true)}
-            >
-              <ChevronRight className="size-3.5" />
-            </Button>
           )}
         </div>
 
