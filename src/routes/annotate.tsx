@@ -125,6 +125,7 @@ function AnnotateBody() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
+  const [queueOpen, setQueueOpen] = useState(true);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const batchesQuery = useQuery({
@@ -356,7 +357,16 @@ function AnnotateBody() {
     <div className="space-y-4">
       {/* Header strip */}
       <div className="panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-sm">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="size-7 p-0"
+            aria-label={queueOpen ? "Collapse queue panel" : "Expand queue panel"}
+            onClick={() => setQueueOpen((value) => !value)}
+          >
+            {queueOpen ? <ChevronLeft className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </Button>
           <span className="font-semibold tabular-nums">
             {reviewedCount} / {allDocuments.length} reviewed
           </span>
@@ -369,11 +379,18 @@ function AnnotateBody() {
         </span>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[240px_1fr_420px]">
+      <div
+        className={cn(
+          "grid gap-4",
+          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[48px_1fr_420px]",
+        )}
+      >
         {/* Queue */}
-        <div className="panel p-3">
-          <Label className="text-xs text-muted-foreground">Batch</Label>
-          <Select
+        <div className={cn("panel flex flex-col", queueOpen ? "p-3" : "items-center px-1.5 py-3")}>
+          {queueOpen ? (
+            <>
+              <Label className="text-xs text-muted-foreground">Batch</Label>
+              <Select
             value={activeBatchId ?? ""}
             onValueChange={(value) => {
               setBatchId(value);
@@ -434,6 +451,18 @@ function AnnotateBody() {
                 </li>
               ))}
             </ul>
+          )}
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 size-7 p-0"
+              aria-label="Expand queue panel"
+              onClick={() => setQueueOpen(true)}
+            >
+              <ChevronRight className="size-3.5" />
+            </Button>
           )}
         </div>
 
