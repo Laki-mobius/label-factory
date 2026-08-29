@@ -382,80 +382,77 @@ function AnnotateBody() {
       <div
         className={cn(
           "grid gap-4 transition-all",
-          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[0px_1fr_420px]",
+          queueOpen ? "xl:grid-cols-[240px_1fr_420px]" : "xl:grid-cols-[1fr_420px]",
         )}
       >
         {/* Queue */}
-        <div
-          className={cn(
-            "panel flex flex-col overflow-hidden",
-            queueOpen ? "p-3" : "w-0 border-0 bg-transparent p-0 shadow-none",
-          )}
-        >
-          <Label className="text-xs text-muted-foreground">Batch</Label>
-          <Select
-            value={activeBatchId ?? ""}
-            onValueChange={(value) => {
-              setBatchId(value);
-              setDocumentId(null);
-            }}
-            disabled={batches.length === 0}
-          >
-            <SelectTrigger className="mt-1 h-8 text-sm" aria-label="Batch">
-              <SelectValue placeholder="No batches yet" />
-            </SelectTrigger>
-            <SelectContent>
-              {batches.map((batch) => (
-                <SelectItem key={batch.id} value={batch.id} className="text-sm">
-                  {batch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {queueOpen && (
+          <div className="panel flex flex-col overflow-hidden p-3">
+            <Label className="text-xs text-muted-foreground">Batch</Label>
+            <Select
+              value={activeBatchId ?? ""}
+              onValueChange={(value) => {
+                setBatchId(value);
+                setDocumentId(null);
+              }}
+              disabled={batches.length === 0}
+            >
+              <SelectTrigger className="mt-1 h-8 text-sm" aria-label="Batch">
+                <SelectValue placeholder="No batches yet" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id} className="text-sm">
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <h2 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Queue
-          </h2>
-          {documentsQuery.isPending ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : documentsQuery.isError ? (
-            <p className="mt-2 text-xs text-destructive">
-              The queue could not be loaded. Try again in a moment.
-            </p>
-          ) : queue.length === 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {allDocuments.length === 0
-                ? "This batch has no documents yet."
-                : "No documents are ready for review — run prelabeling in Ingestion first."}{" "}
-              <Link to="/ingestion" className="text-primary underline-offset-2 hover:underline">
-                Open Ingestion
-              </Link>
-            </p>
-          ) : (
-            <ul className="mt-2 space-y-1.5">
-              {queue.map((doc) => (
-                <li key={doc.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDocumentId(doc.id);
-                      setDrafts({});
-                      setPage(1);
-                    }}
-                    className={cn(
-                      "w-full truncate rounded-md border px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60",
-                      doc.id === documentId ? "border-primary bg-primary/5" : "border-border",
-                    )}
-                  >
-                    {doc.filename}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+            <h2 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Queue
+            </h2>
+            {documentsQuery.isPending ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : documentsQuery.isError ? (
+              <p className="mt-2 text-xs text-destructive">
+                The queue could not be loaded. Try again in a moment.
+              </p>
+            ) : queue.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {allDocuments.length === 0
+                  ? "This batch has no documents yet."
+                  : "No documents are ready for review — run prelabeling in Ingestion first."}{" "}
+                <Link to="/ingestion" className="text-primary underline-offset-2 hover:underline">
+                  Open Ingestion
+                </Link>
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {queue.map((doc) => (
+                  <li key={doc.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDocumentId(doc.id);
+                        setDrafts({});
+                        setPage(1);
+                      }}
+                      className={cn(
+                        "w-full truncate rounded-md border px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60",
+                        doc.id === documentId ? "border-primary bg-primary/5" : "border-border",
+                      )}
+                    >
+                      {doc.filename}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Viewer */}
         <div className="panel flex min-h-[520px] flex-col p-3">
