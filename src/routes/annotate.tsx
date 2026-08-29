@@ -125,6 +125,7 @@ function AnnotateBody() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
+  const [queueOpen, setQueueOpen] = useState(true);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const batchesQuery = useQuery({
