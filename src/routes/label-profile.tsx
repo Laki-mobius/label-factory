@@ -14,11 +14,14 @@ import {
 import { toast } from "sonner";
 
 import { SectionPage } from "@/components/app-shell/SectionPage";
+import { getActiveAiProvider } from "@/lib/ai-provider.functions";
+import { listAvailableBenchmarkModels } from "@/lib/benchmark-compare.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -42,6 +45,7 @@ import {
   generateFieldsFromSample,
   generateFieldsFromType,
 } from "@/lib/field-suggest.functions";
+import { describeFieldWithAi } from "@/lib/field-describe.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/label-profile")({
@@ -87,35 +91,29 @@ const DATA_TYPES = [
 
 type DataType = (typeof DATA_TYPES)[number]["value"];
 
-const MODELS = [
-  {
-    value: "local/ollama-llama3.1",
-    label: "Local · Llama 3.1 (self-hosted)",
-    hint: "Recommended — runs on your own hardware, no per-token cost, documents never leave your network.",
-    selfHosted: true,
-  },
-  {
-    value: "google/gemini-2.5-flash",
-    label: "Hosted · Gemini 2.5 Flash",
-    hint: "Fast and inexpensive hosted model. Good default for schema generation.",
-    selfHosted: false,
-  },
-  {
-    value: "google/gemini-2.5-pro",
-    label: "Hosted · Gemini 2.5 Pro",
-    hint: "Highest quality hosted reasoning for dense or unusual documents.",
-    selfHosted: false,
-  },
-  {
-    value: "openai/gpt-5-mini",
-    label: "Hosted · GPT-5 Mini",
-    hint: "Balanced hosted alternative from OpenAI.",
-    selfHosted: false,
-  },
-] as const;
+/** A real, catalog-validated model choice (see ai-provider.server.ts). Mirrors
+ *  the shape returned by listAvailableBenchmarkModels — kept as a local type
+ *  here rather than importing from the server-only ai-provider module. */
+type ModelChoice = { provider: "openai" | "gemini"; modelId: string; label: string };
 
-/** Self-hosted connectors are not wired to a runtime yet; AI calls fall back. */
-const FALLBACK_MODEL = "google/gemini-2.5-flash";
+/** Sentinel Select value meaning "no override — use the active provider's
+ *  default". Radix Select rejects an empty-string item value, so this stands
+ *  in for null in the dropdown and is translated back to null everywhere else. */
+const DEFAULT_MODEL_VALUE = "__default__";
+
+function modelChoiceToValue(choice: { provider: string; modelId: string } | null): string {
+  return choice ? `${choice.provider}:${choice.modelId}` : DEFAULT_MODEL_VALUE;
+}
+
+function valueToModelChoice(value: string): { provider: "openai" | "gemini"; modelId: string } | null {
+  if (value === DEFAULT_MODEL_VALUE) return null;
+  const sep = value.indexOf(":");
+  if (sep === -1) return null;
+  const provider = value.slice(0, sep);
+  const modelId = value.slice(sep + 1);
+  if ((provider === "openai" || provider === "gemini") && modelId) return { provider, modelId };
+  return null;
+}
 
 type SelectedField = {
   key: string;
@@ -123,9 +121,39 @@ type SelectedField = {
   data_type: DataType;
   bucket: string;
   description: string;
-  origin: "library" | "ai_type" | "ai_sample" | "manual";
+  /** "common" = independently confirmed by both the Library and AI (or a
+   *  library pick that AI later re-proposed) — the strongest signal. */
+  origin: "library" | "ai_type" | "ai_sample" | "manual" | "common";
   confidence?: number | undefined;
+  /** Curated extraction guidance carried over from a matching Universal
+   *  Field Library entry — fed into the extraction prompt server-side. */
+  label_hints?: string[];
+  confusion_hints?: string[];
+  validation_regex?: string;
+  /** This field can occur more than once on a document (e.g. line items) —
+   *  independent of data_type. Fed into the extraction prompt. */
+  multi?: boolean;
+  /** Marked as containing personal/sensitive information. This is a
+   *  human-set flag: it drives real masking downstream (the review screen
+   *  and RLHF/export data), not just a label. */
+  sensitive?: boolean;
+  /** Free-text, per-field instruction sent to the extractor in place of the
+   *  plain description when set — e.g. "Extract only the primary contract
+   *  number, ignore any number printed in the header logo." */
+  extraction_prompt?: string;
 };
+
+/** 0-1 confidence bucketed into a traffic-light label, matching the old
+ *  app's thresholds. No confidence at all defaults to "Medium". */
+function confidenceLevel(confidence: number | undefined): {
+  label: "High" | "Medium" | "Weak";
+  dotClass: string;
+} {
+  if (confidence == null) return { label: "Medium", dotClass: "bg-amber-500" };
+  if (confidence >= 0.82) return { label: "High", dotClass: "bg-emerald-500" };
+  if (confidence >= 0.58) return { label: "Medium", dotClass: "bg-amber-500" };
+  return { label: "Weak", dotClass: "bg-red-500" };
+}
 
 type LibraryField = {
   id: string;
@@ -135,7 +163,24 @@ type LibraryField = {
   data_type: DataType;
   description: string | null;
   sort_order: number;
+  label_hints: string[] | null;
+  confusion_hints: string[] | null;
+  validation_regex: string | null;
 };
+
+/** Picks up a library entry's curated guidance for a given key, if one exists. */
+function findLibraryHints(
+  library: LibraryField[],
+  key: string,
+): Pick<SelectedField, "label_hints" | "confusion_hints" | "validation_regex"> | null {
+  const entry = library.find((f) => f.key === key);
+  if (!entry) return null;
+  return {
+    label_hints: entry.label_hints ?? [],
+    confusion_hints: entry.confusion_hints ?? [],
+    validation_regex: entry.validation_regex ?? undefined,
+  };
+}
 
 type ProfileRow = {
   id: string;
@@ -168,11 +213,12 @@ function LabelProfileScreen() {
   const [profileId, setProfileId] = useState<string>("new");
   const [name, setName] = useState("");
   const [documentType, setDocumentType] = useState("");
-  const [model, setModel] = useState<string>(MODELS[0].value);
+  const [modelValue, setModelValue] = useState<string>(DEFAULT_MODEL_VALUE);
   const [selected, setSelected] = useState<SelectedField[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
-  const [openBuckets, setOpenBuckets] = useState<string[]>([...BUCKETS]);
+  const [openBuckets, setOpenBuckets] = useState<string[]>([]);
+  const [expandedFieldKey, setExpandedFieldKey] = useState<string | null>(null);
   const [sampleStatus, setSampleStatus] = useState<{
     filename: string;
     pages: number;
@@ -187,29 +233,41 @@ function LabelProfileScreen() {
     queryFn: async (): Promise<LibraryField[]> => {
       const { data, error } = await supabase
         .from("field_library")
-        .select("id, bucket, key, display_name, data_type, description, sort_order")
+        .select(
+          "id, bucket, key, display_name, data_type, description, sort_order, label_hints, confusion_hints, validation_regex",
+        )
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as LibraryField[];
     },
   });
 
-  // Models produced by completed finetuning jobs become selectable here.
-  const finetunedQuery = useQuery({
-    queryKey: ["finetuned-models", projectId],
-    enabled: Boolean(projectId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("finetune_jobs")
-        .select("id, name, result_model")
-        .eq("project_id", projectId!)
-        .eq("status", "complete")
-        .not("result_model", "is", null)
-        .order("finished_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).filter((job) => Boolean(job.result_model));
-    },
+  // Read-only status of the active provider — used to describe what
+  // "Default" resolves to in the model picker below.
+  const getActiveProvider = useServerFn(getActiveAiProvider);
+  const activeProviderQuery = useQuery({
+    queryKey: ["active-ai-provider"],
+    queryFn: () => getActiveProvider({ data: {} }),
+    staleTime: 60_000,
   });
+
+  // Real, concrete models available for explicit per-profile selection —
+  // only entries whose provider has a configured API key. Different models
+  // genuinely produce different field suggestions/extractions, so this is a
+  // real choice, not just a display label.
+  const listModels = useServerFn(listAvailableBenchmarkModels);
+  const modelsQuery = useQuery({
+    queryKey: ["available-ai-models"],
+    staleTime: 60_000,
+    queryFn: async () => (await listModels({ data: {} })).models as ModelChoice[],
+  });
+  const availableModels = modelsQuery.data ?? [];
+  const selectedModel = valueToModelChoice(modelValue);
+  const selectedModelLabel = selectedModel
+    ? (availableModels.find(
+        (m) => m.provider === selectedModel.provider && m.modelId === selectedModel.modelId,
+      )?.label ?? selectedModel.modelId)
+    : null;
 
   const profilesQuery = useQuery({
     queryKey: ["label-profiles", projectId],
@@ -245,27 +303,79 @@ function LabelProfileScreen() {
         description: field.description ?? "",
         origin: field.origin ?? "library",
         confidence: field.confidence,
+        label_hints: field.label_hints,
+        confusion_hints: field.confusion_hints,
+        validation_regex: field.validation_regex,
+        multi: field.multi,
+        sensitive: field.sensitive,
+        extraction_prompt: field.extraction_prompt,
       })),
     );
-    const config = (profile.model_config ?? {}) as { model?: string };
-    if (config.model) setModel(config.model);
+    const config = (profile.model_config ?? {}) as { provider?: unknown; model?: unknown };
+    setModelValue(
+      (config.provider === "openai" || config.provider === "gemini") &&
+        typeof config.model === "string" &&
+        config.model
+        ? `${config.provider}:${config.model}`
+        : DEFAULT_MODEL_VALUE,
+    );
   }, [profileId, profiles]);
 
   const selectedKeys = useMemo(() => new Set(selected.map((f) => f.key)), [selected]);
 
-  function mergeFields(incoming: SelectedField[]) {
+  // AI-proposed fields and Universal Field Library fields both land in
+  // `selected`, keyed by field key. When a key exists on both sides — AI
+  // independently proposed something the library already curates, or the
+  // library box is checked for a field AI already proposed — the entry is
+  // upgraded to origin "common" and gains the library's label/confusion
+  // hints, which are what actually get fed into the extraction prompt.
+  function mergeFields(incoming: SelectedField[]): { added: number; confirmed: number } {
+    const library = libraryQuery.data ?? [];
+    let added = 0;
+    let confirmed = 0;
     setSelected((current) => {
-      const existing = new Set(current.map((f) => f.key));
-      const additions = incoming.filter((f) => !existing.has(f.key));
-      return [...current, ...additions];
+      const next = [...current];
+      added = 0;
+      confirmed = 0;
+      for (const field of incoming) {
+        const hints = findLibraryHints(library, field.key);
+        const existingIndex = next.findIndex((f) => f.key === field.key);
+        if (existingIndex !== -1) {
+          if (hints && next[existingIndex].origin !== "manual") {
+            confirmed++;
+            next[existingIndex] = {
+              ...next[existingIndex],
+              origin: "common",
+              ...hints,
+              confidence: field.confidence ?? next[existingIndex].confidence,
+            };
+          }
+          continue;
+        }
+        added++;
+        next.push(hints ? { ...field, origin: "common", ...hints } : field);
+      }
+      return next;
     });
-    return incoming.length;
+    return { added, confirmed };
   }
 
   function toggleLibraryField(field: LibraryField, checked: boolean) {
     setSelected((current) => {
       if (!checked) return current.filter((f) => f.key !== field.key);
-      if (current.some((f) => f.key === field.key)) return current;
+      const hints = {
+        label_hints: field.label_hints ?? [],
+        confusion_hints: field.confusion_hints ?? [],
+        validation_regex: field.validation_regex ?? undefined,
+      };
+      const existingIndex = current.findIndex((f) => f.key === field.key);
+      if (existingIndex !== -1) {
+        const existing = current[existingIndex];
+        if (existing.origin === "manual") return current;
+        const next = [...current];
+        next[existingIndex] = { ...existing, origin: "common", ...hints };
+        return next;
+      }
       return [
         ...current,
         {
@@ -275,6 +385,7 @@ function LabelProfileScreen() {
           bucket: field.bucket,
           description: field.description ?? "",
           origin: "library",
+          ...hints,
         },
       ];
     });
@@ -286,11 +397,6 @@ function LabelProfileScreen() {
     );
   }
 
-  const finetunedModels = finetunedQuery.data ?? [];
-  const isFinetuned = finetunedModels.some((job) => job.result_model === model);
-  const resolvedModel =
-    isFinetuned || MODELS.find((m) => m.value === model)?.selfHosted ? FALLBACK_MODEL : model;
-
   const runFromType = useServerFn(generateFieldsFromType);
   const runFromSample = useServerFn(generateFieldsFromSample);
 
@@ -299,17 +405,22 @@ function LabelProfileScreen() {
       if (!documentType.trim()) throw new Error("Enter a document type first.");
       return runFromType({
         data: {
-          model: resolvedModel,
+          model: selectedModel,
           documentType: documentType.trim(),
           industry: activeProject?.workspace_type ?? "general",
         },
       });
     },
     onSuccess: (result) => {
-      const added = mergeFields(
+      const { added, confirmed } = mergeFields(
         result.fields.map((field) => ({ ...field, origin: "ai_type" as const })),
       );
-      toast.success(`AI proposed ${added} fields for "${documentType.trim()}".`);
+      toast.success(
+        `AI proposed ${added} new field${added === 1 ? "" : "s"} for "${documentType.trim()}"` +
+          (confirmed > 0
+            ? ` and confirmed ${confirmed} library field${confirmed === 1 ? "" : "s"} as Common.`
+            : "."),
+      );
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -324,7 +435,7 @@ function LabelProfileScreen() {
       }
       return runFromSample({
         data: {
-          model: resolvedModel,
+          model: selectedModel,
           documentType: documentType.trim(),
           industry: activeProject?.workspace_type ?? "general",
           filename: file.name,
@@ -334,7 +445,7 @@ function LabelProfileScreen() {
       });
     },
     onSuccess: (result, file) => {
-      const added = mergeFields(
+      const { added, confirmed } = mergeFields(
         result.fields.map((field) => ({ ...field, origin: "ai_sample" as const })),
       );
       setSampleStatus({
@@ -344,7 +455,33 @@ function LabelProfileScreen() {
         fieldCount: added,
         at: result.generatedAt,
       });
-      toast.success(`Analysed ${file.name} and proposed ${added} fields.`);
+      toast.success(
+        `Analysed ${file.name} and proposed ${added} new field${added === 1 ? "" : "s"}` +
+          (confirmed > 0
+            ? ` (confirmed ${confirmed} library field${confirmed === 1 ? "" : "s"} as Common).`
+            : "."),
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // "AI Describe" — regenerates one field's description on demand. Tracked
+  // by key so each card can show its own spinner independently.
+  const runDescribeField = useServerFn(describeFieldWithAi);
+  const describeMutation = useMutation({
+    mutationFn: async (field: SelectedField) =>
+      runDescribeField({
+        data: {
+          model: selectedModel,
+          documentType: documentType.trim(),
+          displayName: field.display_name,
+          key: field.key,
+          dataType: field.data_type,
+          existingDescription: field.description || undefined,
+        },
+      }).then((result) => ({ key: field.key, description: result.description })),
+    onSuccess: ({ key, description }) => {
+      updateField(key, { description });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -360,7 +497,14 @@ function LabelProfileScreen() {
         name: name.trim(),
         document_type: documentType.trim() || null,
         fields: selected as unknown as never,
-        model_config: { model, resolved_model: resolvedModel } as unknown as never,
+        // null/null means "use the active provider's default" — every AI
+        // action for this profile (field suggestions, extraction, Reward AI,
+        // synthetic data) resolves this via resolveModelConfig(), which
+        // falls back gracefully if the chosen provider's key is ever removed.
+        model_config: {
+          provider: selectedModel?.provider ?? null,
+          model: selectedModel?.modelId ?? null,
+        } as unknown as never,
       };
 
       // Published versions are immutable: saving forks a new draft version.
@@ -450,6 +594,7 @@ function LabelProfileScreen() {
             setProfileId("new");
             setName("");
             setDocumentType("");
+            setModelValue(DEFAULT_MODEL_VALUE);
             setSelected([]);
             setSampleStatus(null);
           }}
@@ -516,24 +661,22 @@ function LabelProfileScreen() {
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="space-y-1.5">
             <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="h-8 w-80 text-sm" aria-label="Workflow model">
+            <Select value={modelValue} onValueChange={setModelValue}>
+              <SelectTrigger className="h-8 w-72 text-sm" aria-label="Workflow model">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MODELS.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-sm">
-                    {option.label}
-                    {option.selfHosted ? " · recommended" : ""}
-                  </SelectItem>
-                ))}
-                {finetunedModels.map((job) => (
+                <SelectItem value={DEFAULT_MODEL_VALUE} className="text-sm">
+                  Default — active provider
+                  {activeProviderQuery.data?.label ? ` (${activeProviderQuery.data.label})` : ""}
+                </SelectItem>
+                {availableModels.map((choice) => (
                   <SelectItem
-                    key={job.id}
-                    value={job.result_model as string}
+                    key={`${choice.provider}:${choice.modelId}`}
+                    value={modelChoiceToValue(choice)}
                     className="text-sm"
                   >
-                    Finetuned · {job.name} ({job.result_model})
+                    {choice.provider === "openai" ? "OpenAI" : "Gemini"} · {choice.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -551,7 +694,7 @@ function LabelProfileScreen() {
             ) : (
               <Sparkles className="mr-1 size-3.5" />
             )}
-            AI Generate
+            Suggest fields with AI
           </Button>
           <Button
             size="sm"
@@ -588,9 +731,16 @@ function LabelProfileScreen() {
           </Button>
         </div>
         <p className="mt-2 text-2xs text-muted-foreground">
-          {isFinetuned
-            ? "Finetuned model from this project. It is served by your external trainer; schema generation here falls back to a hosted model."
-            : MODELS.find((m) => m.value === model)?.hint}
+          {selectedModel
+            ? `Field generation, extraction, Reward AI, and synthetic data for this profile all use ${
+                selectedModel.provider === "openai" ? "OpenAI" : "Gemini"
+              } · ${selectedModelLabel}.`
+            : `Default — uses whichever provider is currently active (${
+                activeProviderQuery.data?.label ?? "checking…"
+              }), with automatic fallback if that key is ever removed.`}
+          {modelsQuery.isSuccess && availableModels.length === 0
+            ? " Only one provider's key is configured, so no alternate models are available yet."
+            : ""}
         </p>
 
         {sampleMutation.isPending ? (
@@ -624,7 +774,9 @@ function LabelProfileScreen() {
         <section className="panel p-4">
           <h2 className="text-sm font-semibold tracking-tight">Universal Field Library</h2>
           <p className="mt-1 text-2xs text-muted-foreground">
-            Shared catalog available to every project and industry.
+            Shared catalog with curated extraction guidance — label variants to look for and
+            confusable fields to avoid, fed straight into extraction. If AI independently proposes
+            one of these fields too, it's marked <span className="font-medium">Common</span>.
           </p>
           {libraryQuery.isPending ? (
             <div className="flex justify-center py-8">
@@ -680,6 +832,10 @@ function LabelProfileScreen() {
                               <span className="font-medium">{field.display_name}</span>
                               <span className="block text-2xs text-muted-foreground">
                                 {field.key} · {field.data_type}
+                                {(field.label_hints?.length ?? 0) > 0 ||
+                                (field.confusion_hints?.length ?? 0) > 0
+                                  ? " · guided"
+                                  : ""}
                               </span>
                             </span>
                           </label>
@@ -703,8 +859,8 @@ function LabelProfileScreen() {
           </div>
           {selected.length === 0 ? (
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              No fields yet. Check items from the library, run AI Generate, analyse a sample, or
-              add one manually.
+              No fields yet. Check items from the library, run Suggest fields with AI, analyse a
+              sample, or add one manually.
             </p>
           ) : (
             <div className="mt-3 space-y-3">
@@ -720,18 +876,55 @@ function LabelProfileScreen() {
                         .map((field) => (
                           <div
                             key={field.key}
-                            className="rounded-md border border-border p-2.5"
+                            className={cn(
+                              "rounded-md border p-2.5 transition-colors",
+                              expandedFieldKey === field.key
+                                ? "border-primary/40 bg-primary-soft"
+                                : "border-border",
+                            )}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-xs font-medium">
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 text-left"
+                              aria-expanded={expandedFieldKey === field.key}
+                              onClick={() =>
+                                setExpandedFieldKey((current) =>
+                                  current === field.key ? null : field.key,
+                                )
+                              }
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  "size-3.5 shrink-0 transition-transform",
+                                  expandedFieldKey !== field.key && "-rotate-90",
+                                  expandedFieldKey === field.key && "text-primary-soft-foreground",
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "truncate text-xs font-medium",
+                                  expandedFieldKey === field.key && "text-primary-soft-foreground",
+                                )}
+                              >
                                 {field.display_name}
                               </span>
-                              {field.origin === "ai_type" || field.origin === "ai_sample" ? (
+                              {field.origin === "common" ? (
+                                <Badge className="text-2xs">
+                                  Common
+                                  {typeof field.confidence === "number"
+                                    ? ` · ${Math.round(field.confidence * 100)}%`
+                                    : ""}
+                                </Badge>
+                              ) : field.origin === "ai_type" || field.origin === "ai_sample" ? (
                                 <Badge className="text-2xs">
                                   AI
                                   {typeof field.confidence === "number"
                                     ? ` · ${Math.round(field.confidence * 100)}%`
                                     : ""}
+                                </Badge>
+                              ) : field.origin === "library" ? (
+                                <Badge variant="outline" className="text-2xs">
+                                  Library
                                 </Badge>
                               ) : null}
                               {field.origin === "manual" ? (
@@ -739,20 +932,14 @@ function LabelProfileScreen() {
                                   Custom
                                 </Badge>
                               ) : null}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="ml-auto size-7"
-                                aria-label={`Remove ${field.display_name}`}
-                                onClick={() =>
-                                  setSelected((current) =>
-                                    current.filter((f) => f.key !== field.key),
-                                  )
-                                }
-                              >
-                                <Trash2 className="size-3.5" />
-                              </Button>
-                            </div>
+                              {field.sensitive ? (
+                                <Badge variant="destructive" className="text-2xs">
+                                  Sensitive
+                                </Badge>
+                              ) : null}
+                            </button>
+                            {expandedFieldKey === field.key ? (
+                              <>
                             <div className="mt-2 grid gap-2 sm:grid-cols-3">
                               <Input
                                 value={field.key}
@@ -795,10 +982,111 @@ function LabelProfileScreen() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            {field.description ? (
-                              <p className="mt-1.5 text-2xs text-muted-foreground">
-                                {field.description}
+                            <div className="mt-1.5 flex items-start gap-1.5 text-2xs text-muted-foreground">
+                              <span
+                                className={cn(
+                                  "mt-1 size-1.5 shrink-0 rounded-full",
+                                  confidenceLevel(field.confidence).dotClass,
+                                )}
+                                aria-hidden="true"
+                              />
+                              <span>
+                                <span className="font-medium">
+                                  {confidenceLevel(field.confidence).label}
+                                </span>
+                                {field.description ? `  ${field.description}` : ""}
+                              </span>
+                            </div>
+                            {(field.label_hints?.length ?? 0) > 0 ||
+                            (field.confusion_hints?.length ?? 0) > 0 ? (
+                              <p className="mt-1 pl-3 text-2xs text-muted-foreground/80">
+                                {field.label_hints?.length
+                                  ? `Looks for: ${field.label_hints.slice(0, 3).join(", ")}${
+                                      field.label_hints.length > 3 ? "…" : ""
+                                    }`
+                                  : ""}
+                                {field.label_hints?.length && field.confusion_hints?.length
+                                  ? " · "
+                                  : ""}
+                                {field.confusion_hints?.length
+                                  ? `Avoid confusing with: ${field.confusion_hints
+                                      .slice(0, 2)
+                                      .join(", ")}${field.confusion_hints.length > 2 ? "…" : ""}`
+                                  : ""}
                               </p>
+                            ) : null}
+
+                            <div className="mt-2.5 flex flex-wrap items-center gap-4 border-t border-border pt-2">
+                              <label className="flex items-center gap-1.5 text-2xs">
+                                <Switch
+                                  checked={field.multi ?? false}
+                                  onCheckedChange={(checked) =>
+                                    updateField(field.key, { multi: checked })
+                                  }
+                                  aria-label={`Multi for ${field.display_name}`}
+                                />
+                                Multi
+                              </label>
+                              <label className="flex items-center gap-1.5 text-2xs">
+                                <Switch
+                                  checked={field.sensitive ?? false}
+                                  onCheckedChange={(checked) =>
+                                    updateField(field.key, { sensitive: checked })
+                                  }
+                                  aria-label={`Sensitive for ${field.display_name}`}
+                                />
+                                Sensitive
+                              </label>
+                            </div>
+
+                            <div className="mt-2 space-y-1">
+                              <Label className="flex items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Sparkles className="size-3" /> Extraction Prompt
+                              </Label>
+                              <Textarea
+                                value={field.extraction_prompt ?? ""}
+                                onChange={(event) =>
+                                  updateField(field.key, { extraction_prompt: event.target.value })
+                                }
+                                placeholder={field.description || `Extract ${field.display_name}.`}
+                                className="min-h-14 text-xs"
+                                aria-label={`Extraction prompt for ${field.display_name}`}
+                              />
+                            </div>
+
+                            <div className="mt-2 flex items-center justify-between">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 gap-1 px-2 text-2xs"
+                                onClick={() => describeMutation.mutate(field)}
+                                disabled={
+                                  describeMutation.isPending &&
+                                  describeMutation.variables?.key === field.key
+                                }
+                              >
+                                {describeMutation.isPending &&
+                                describeMutation.variables?.key === field.key ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="size-3" />
+                                )}
+                                AI Describe
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 gap-1 px-2 text-2xs text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  setSelected((current) =>
+                                    current.filter((f) => f.key !== field.key),
+                                  )
+                                }
+                              >
+                                <Trash2 className="size-3" /> Remove
+                              </Button>
+                            </div>
+                              </>
                             ) : null}
                           </div>
                         ))}
@@ -855,7 +1143,10 @@ function LabelProfileScreen() {
                 {
                   name: name || null,
                   document_type: documentType || null,
-                  model_config: { model, resolved_model: resolvedModel },
+                  model_config: {
+                    provider: selectedModel?.provider ?? null,
+                    model: selectedModel?.modelId ?? null,
+                  },
                   fields: selected,
                 },
                 null,

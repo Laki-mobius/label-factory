@@ -1,5 +1,5 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { resolveAiModel } from "@/lib/ai-provider.server";
 
 export const BUCKETS = [
   "Document Details",
@@ -28,16 +28,6 @@ export type SuggestedField = {
   description: string;
   confidence: number;
 };
-
-function gateway() {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI is not configured for this project.");
-  return createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-  });
-}
 
 const SYSTEM = `You are a document data-extraction schema designer for a multi-industry labeling platform.
 Return ONLY a JSON object of the shape:
@@ -88,9 +78,9 @@ function parseFields(raw: string): SuggestedField[] {
   return out;
 }
 
-async function run(model: string, prompt: string): Promise<SuggestedField[]> {
+async function run(model: ReturnType<typeof resolveAiModel>, prompt: string): Promise<SuggestedField[]> {
   const result = await generateText({
-    model: gateway()(model),
+    model,
     system: SYSTEM,
     prompt,
   });
@@ -98,7 +88,9 @@ async function run(model: string, prompt: string): Promise<SuggestedField[]> {
 }
 
 export async function suggestFromDocumentType(input: {
-  model: string;
+  /** An already-resolved AI SDK model — the caller (field-suggest.functions.ts)
+   *  picks the profile's chosen provider/model, or the active default. */
+  model: ReturnType<typeof resolveAiModel>;
   documentType: string;
   industry: string;
 }): Promise<SuggestedField[]> {
@@ -139,7 +131,7 @@ export async function extractSampleText(input: {
 }
 
 export async function suggestFromSampleText(input: {
-  model: string;
+  model: ReturnType<typeof resolveAiModel>;
   documentType: string;
   industry: string;
   filename: string;

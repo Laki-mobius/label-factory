@@ -1,14 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { extractDocumentText, extractValues, type ProfileField } from "./prelabel.server";
-
-const FALLBACK_MODEL = "google/gemini-2.5-flash";
-
-/** Hosted gateway ids only; self-hosted connectors fall back until a runtime exists. */
-function resolveModel(raw: unknown): string {
-  const model = typeof raw === "string" ? raw : "";
-  return model && !model.startsWith("local/") ? model : FALLBACK_MODEL;
-}
+import { resolveModelConfig } from "./ai-provider.server";
 
 export async function runPrelabel(supabase: SupabaseClient<any>, documentId: string) {
   const { data: doc, error: docError } = await supabase
@@ -62,7 +55,7 @@ export async function runPrelabel(supabase: SupabaseClient<any>, documentId: str
     }
 
     const values = await extractValues({
-      model: resolveModel((profile?.model_config as Record<string, unknown> | null)?.["model"]),
+      model: resolveModelConfig(profile?.model_config),
       documentType: profile?.document_type ?? "",
       filename: doc.filename,
       text,

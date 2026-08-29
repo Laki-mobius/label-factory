@@ -261,7 +261,7 @@ function ExportPanel() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="panel">
+        <div className="panel min-w-0">
           <div className="border-b border-border/60 px-4 py-3">
             <h2 className="text-sm font-semibold tracking-tight">Approved documents</h2>
             <p className="text-xs text-muted-foreground">
@@ -319,14 +319,14 @@ function ExportPanel() {
           )}
         </div>
 
-        <div className="panel">
+        <div className="panel min-w-0">
           <div className="border-b border-border/60 px-4 py-3">
             <h2 className="text-sm font-semibold tracking-tight">Sample record preview</h2>
             <p className="text-xs text-muted-foreground">
               First record as it will appear in the {format.toUpperCase()} output.
             </p>
           </div>
-          <pre className="max-h-[26rem] overflow-auto px-4 py-3 text-[11px] leading-relaxed">
+          <pre className="max-h-[26rem] w-full max-w-full overflow-auto px-4 py-3 text-[11px] leading-relaxed">
             {chosen.length === 0 ? "Nothing in scope yet." : preview}
           </pre>
         </div>

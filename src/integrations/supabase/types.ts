@@ -124,16 +124,73 @@ export type Database = {
           },
         ]
       }
+      benchmark_evaluations: {
+        Row: {
+          ai_summary: string | null
+          completeness: number | null
+          consistency: number | null
+          created_at: string
+          created_by: string | null
+          document_risk: Json
+          faithfulness: number | null
+          field_attention: Json
+          hallucination_risk: number | null
+          id: string
+          recommendations: string[]
+          run_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          completeness?: number | null
+          consistency?: number | null
+          created_at?: string
+          created_by?: string | null
+          document_risk?: Json
+          faithfulness?: number | null
+          field_attention?: Json
+          hallucination_risk?: number | null
+          id?: string
+          recommendations?: string[]
+          run_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          completeness?: number | null
+          consistency?: number | null
+          created_at?: string
+          created_by?: string | null
+          document_risk?: Json
+          faithfulness?: number | null
+          field_attention?: Json
+          hallucination_risk?: number | null
+          id?: string
+          recommendations?: string[]
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmark_evaluations_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "benchmark_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       benchmark_runs: {
         Row: {
           batch_ids: string[]
           batch_labels: string[]
+          benchmark_mode: string
+          comparison_group_id: string | null
           comparisons: number
           created_at: string
           created_by: string | null
           documents_evaluated: number
           fields_evaluated: number
           id: string
+          model_key: string | null
+          model_label: string | null
           name: string
           overall_score: number
           profile_ids: string[]
@@ -143,12 +200,16 @@ export type Database = {
         Insert: {
           batch_ids?: string[]
           batch_labels?: string[]
+          benchmark_mode?: string
+          comparison_group_id?: string | null
           comparisons?: number
           created_at?: string
           created_by?: string | null
           documents_evaluated?: number
           fields_evaluated?: number
           id?: string
+          model_key?: string | null
+          model_label?: string | null
           name: string
           overall_score?: number
           profile_ids?: string[]
@@ -158,12 +219,16 @@ export type Database = {
         Update: {
           batch_ids?: string[]
           batch_labels?: string[]
+          benchmark_mode?: string
+          comparison_group_id?: string | null
           comparisons?: number
           created_at?: string
           created_by?: string | null
           documents_evaluated?: number
           fields_evaluated?: number
           id?: string
+          model_key?: string | null
+          model_label?: string | null
           name?: string
           overall_score?: number
           profile_ids?: string[]
@@ -246,6 +311,8 @@ export type Database = {
           field_label: string | null
           final_value: string | null
           id: string
+          reason_code: Database["public"]["Enums"]["extraction_reason_code"] | null
+          reason_notes: string | null
           review_state: Database["public"]["Enums"]["extraction_review_state"]
           reviewed_at: string | null
           reviewed_by: string | null
@@ -264,6 +331,8 @@ export type Database = {
           field_label?: string | null
           final_value?: string | null
           id?: string
+          reason_code?: Database["public"]["Enums"]["extraction_reason_code"] | null
+          reason_notes?: string | null
           review_state?: Database["public"]["Enums"]["extraction_review_state"]
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -282,6 +351,8 @@ export type Database = {
           field_label?: string | null
           final_value?: string | null
           id?: string
+          reason_code?: Database["public"]["Enums"]["extraction_reason_code"] | null
+          reason_notes?: string | null
           review_state?: Database["public"]["Enums"]["extraction_review_state"]
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -659,6 +730,56 @@ export type Database = {
           },
         ]
       }
+      rlhf_preference_decisions: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: Database["public"]["Enums"]["preference_decision"] | null
+          document_id: string
+          field_key: string
+          field_label: string | null
+          id: string
+          model_a_value: string | null
+          model_b_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["preference_decision"] | null
+          document_id: string
+          field_key: string
+          field_label?: string | null
+          id?: string
+          model_a_value?: string | null
+          model_b_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["preference_decision"] | null
+          document_id?: string
+          field_key?: string
+          field_label?: string | null
+          id?: string
+          model_a_value?: string | null
+          model_b_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rlhf_preference_decisions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       synthetic_records: {
         Row: {
           accepted_document_id: string | null
@@ -917,6 +1038,13 @@ export type Database = {
         | "in_review"
         | "approved"
         | "rejected"
+      extraction_reason_code:
+        | "wrong_value"
+        | "partial_extraction"
+        | "wrong_entity_mapping"
+        | "wrong_evidence_mapping"
+        | "format_issue"
+        | "other"
       extraction_review_state:
         | "pending"
         | "accepted"
@@ -933,6 +1061,7 @@ export type Database = {
         | "multi_value"
       finetune_job_status: "queued" | "running" | "complete" | "failed"
       member_access: "owner" | "editor" | "viewer"
+      preference_decision: "prefer_a" | "prefer_b" | "both" | "neither"
       profile_status: "draft" | "published" | "archived"
       project_status: "active" | "paused" | "completed" | "archived"
       synthetic_record_status: "pending" | "accepted" | "discarded"
@@ -1088,6 +1217,14 @@ export const Constants = {
         "approved",
         "rejected",
       ],
+      extraction_reason_code: [
+        "wrong_value",
+        "partial_extraction",
+        "wrong_entity_mapping",
+        "wrong_evidence_mapping",
+        "format_issue",
+        "other",
+      ],
       extraction_review_state: [
         "pending",
         "accepted",
@@ -1106,6 +1243,7 @@ export const Constants = {
       ],
       finetune_job_status: ["queued", "running", "complete", "failed"],
       member_access: ["owner", "editor", "viewer"],
+      preference_decision: ["prefer_a", "prefer_b", "both", "neither"],
       profile_status: ["draft", "published", "archived"],
       project_status: ["active", "paused", "completed", "archived"],
       synthetic_record_status: ["pending", "accepted", "discarded"],

@@ -1,5 +1,5 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { resolveAiModel } from "@/lib/ai-provider.server";
 
 export type ProfileField = {
   key: string;
@@ -7,6 +7,22 @@ export type ProfileField = {
   data_type?: string;
   bucket?: string;
   description?: string;
+  /** Curated extraction guidance from the Universal Field Library (see
+   *  field_library's label_hints/confusion_hints/validation_regex columns) —
+   *  present when this field was picked from the library, or was
+   *  independently proposed by AI and matched a library key ("Common"). */
+  label_hints?: string[];
+  confusion_hints?: string[];
+  validation_regex?: string;
+  /** Free-text per-field instruction that replaces the plain description in
+   *  the extraction prompt when set (label-profile.tsx's "Extraction Prompt"
+   *  box). */
+  extraction_prompt?: string;
+  /** This field can occur more than once on the document — advisory prompt
+   *  guidance only; extraction still returns one value per field key (see
+   *  ExtractedValue), so a multi field's value should be a short, delimited
+   *  summary of all occurrences rather than genuinely separate rows. */
+  multi?: boolean;
 };
 
 export type ExtractedValue = {
@@ -16,16 +32,6 @@ export type ExtractedValue = {
   evidence: string;
   page: number;
 };
-
-function gateway() {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI is not configured for this project.");
-  return createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-  });
-}
 
 const SYSTEM = `You extract structured data from business documents.
 Return ONLY a JSON object: {"values":[{"field_key":"...","value":"...","confidence":0.0-1.0,"evidence":"verbatim snippet from the document that supports the value","page":1}]}
@@ -90,23 +96,43 @@ export async function extractDocumentText(input: {
 }
 
 export async function extractValues(input: {
-  model: string;
+  /** An already-resolved AI SDK model (see resolveAiModel/resolveExplicitModel in ai-provider.server) — callers pick the provider/model, this function just runs the extraction. */
+  model: ReturnType<typeof resolveAiModel>;
   documentType: string;
   filename: string;
   text: string;
   fields: ProfileField[];
 }): Promise<ExtractedValue[]> {
   const schema = input.fields
-    .map(
-      (field) =>
+    .map((field) => {
+      // A hand-written extraction prompt takes priority over the plain
+      // description — it's the human's specific instruction for this field.
+      const instruction = field.extraction_prompt?.trim() || field.description;
+      const lines = [
         `- ${field.key} (${field.data_type ?? "text"}) — ${field.display_name ?? field.key}${
-          field.description ? `: ${field.description}` : ""
+          instruction ? `: ${instruction}` : ""
         }`,
-    )
+      ];
+      if (field.label_hints?.length) {
+        lines.push(`  Look for labels like: ${field.label_hints.map((h) => `"${h}"`).join(", ")}`);
+      }
+      if (field.confusion_hints?.length) {
+        lines.push(`  Do not confuse this with: ${field.confusion_hints.join(", ")}`);
+      }
+      if (field.validation_regex) {
+        lines.push(`  Expected format (regex): ${field.validation_regex}`);
+      }
+      if (field.multi) {
+        lines.push(
+          "  This field can occur multiple times in the document — if it does, summarize all occurrences in the single value, separated by \"; \".",
+        );
+      }
+      return lines.join("\n");
+    })
     .join("\n");
 
   const result = await generateText({
-    model: gateway()(input.model),
+    model: input.model,
     system: SYSTEM,
     prompt: `Document type: "${input.documentType || "unknown"}" (file: ${input.filename}).
 

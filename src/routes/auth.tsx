@@ -4,13 +4,18 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import logoAsset from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+/** Drop a JPEG at public/login-background.jpg to replace the brand-gradient
+ *  panel on the login screen with a photo. Missing file (404) silently falls
+ *  back to the default gradient — see the onError/onLoad probe below. */
+const LOGIN_BACKGROUND_SRC = "/login-background.jpg";
 
 const searchSchema = z.object({ next: z.string().optional() });
 
@@ -44,6 +49,7 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [hasCustomBg, setHasCustomBg] = useState(false);
 
   useEffect(() => {
     if (!loading && session) {
@@ -100,34 +106,66 @@ function AuthPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Brand panel */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-primary-soft p-10 lg:flex">
+        {/* Custom background photo (public/login-background.jpg), if present.
+            Hidden until it loads so a missing file never flashes a broken
+            image; onError leaves hasCustomBg false and the gradient below
+            (still in the DOM) shows through untouched. */}
+        <img
+          src={LOGIN_BACKGROUND_SRC}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setHasCustomBg(true)}
+          onError={() => setHasCustomBg(false)}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover",
+            !hasCustomBg && "hidden",
+          )}
+        />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-primary/5"
+          className={cn(
+            "absolute inset-0",
+            hasCustomBg
+              ? "bg-gradient-to-b from-black/10 via-black/25 to-black/60"
+              : "bg-gradient-to-br from-primary/20 via-transparent to-primary/5",
+          )}
         />
         <div className="relative flex items-center gap-3">
           <img
-            src={logoAsset.url}
+            src="/logo.png"
             alt="LabelFactory"
             className="size-10 shrink-0 rounded-md object-contain"
           />
           <div>
-            <div className="text-base font-semibold tracking-tight text-primary-soft-foreground">
+            <div
+              className={cn(
+                "text-base font-semibold tracking-tight",
+                hasCustomBg ? "text-white" : "text-primary-soft-foreground",
+              )}
+            >
               LabelFactory
             </div>
-            <div className="text-xs text-primary-soft-foreground/70">Platform</div>
+            <div className={cn("text-xs", hasCustomBg ? "text-white/70" : "text-primary-soft-foreground/70")}>
+              Platform
+            </div>
           </div>
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight text-primary-soft-foreground">
+          <h2
+            className={cn(
+              "text-3xl font-semibold leading-tight tracking-tight",
+              hasCustomBg ? "text-white" : "text-primary-soft-foreground",
+            )}
+          >
             Turning raw documents into structured, trustworthy data
           </h2>
-          <p className="mt-4 text-sm text-primary-soft-foreground/80">
+          <p className={cn("mt-4 text-sm", hasCustomBg ? "text-white/80" : "text-primary-soft-foreground/80")}>
             AI-assisted labelling, human review, and RLHF feedback in one workspace.
           </p>
         </div>
 
-        <div className="relative text-xs text-primary-soft-foreground/70">
+        <div className={cn("relative text-xs", hasCustomBg ? "text-white/70" : "text-primary-soft-foreground/70")}>
           LabelFactory Platform
         </div>
       </div>
@@ -137,7 +175,7 @@ function AuthPage() {
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 lg:hidden">
             <img
-              src={logoAsset.url}
+              src="/logo.png"
               alt="LabelFactory"
               className="size-7 shrink-0 rounded-md object-contain"
             />

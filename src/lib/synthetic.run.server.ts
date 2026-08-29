@@ -2,9 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   generateSyntheticDrafts,
-  resolveModel,
   type SyntheticField,
 } from "./synthetic.server";
+import { resolveModelConfig } from "./ai-provider.server";
 
 type GenerationInput = {
   projectId: string;
@@ -52,7 +52,7 @@ export async function runSyntheticGeneration(
     .maybeSingle();
 
   const drafts = await generateSyntheticDrafts({
-    model: resolveModel((profile.model_config as Record<string, unknown> | null)?.["model"]),
+    model: resolveModelConfig(profile.model_config),
     documentType: profile.document_type ?? "",
     industry: String(project?.workspace_type ?? "general"),
     profileName: profile.name,

@@ -1,5 +1,5 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { resolveAiModel } from "@/lib/ai-provider.server";
 
 export type SyntheticField = {
   key: string;
@@ -14,23 +14,6 @@ export type SyntheticRecordDraft = {
   summary: string;
   values: { field_key: string; value: string }[];
 };
-
-const FALLBACK_MODEL = "google/gemini-2.5-flash";
-
-export function resolveModel(value: unknown) {
-  const model = typeof value === "string" ? value.trim() : "";
-  return model.length > 0 ? model : FALLBACK_MODEL;
-}
-
-function gateway() {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI is not configured for this project.");
-  return createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-  });
-}
 
 const SYSTEM = `You fabricate SYNTHETIC training examples for a document data-labeling platform.
 Everything you produce is artificial: never reuse real companies, real people, real account numbers or any real personal data.
@@ -72,7 +55,9 @@ function parseRecords(raw: string, fields: SyntheticField[], count: number): Syn
 }
 
 export async function generateSyntheticDrafts(input: {
-  model: string;
+  /** An already-resolved AI SDK model — the caller resolves the profile's
+   *  chosen provider/model (or the active default) before calling. */
+  model: ReturnType<typeof resolveAiModel>;
   documentType: string;
   industry: string;
   profileName: string;
@@ -91,7 +76,7 @@ export async function generateSyntheticDrafts(input: {
     .join("\n");
 
   const result = await generateText({
-    model: gateway()(input.model),
+    model: input.model,
     system: SYSTEM,
     prompt: `Industry: ${input.industry || "general"}.
 Document type: "${input.documentType || input.profileName}".

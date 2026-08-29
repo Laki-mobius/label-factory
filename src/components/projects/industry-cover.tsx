@@ -192,7 +192,7 @@ export function IndustryCover({
   workspaceType: string;
   className?: string;
 }) {
-  const { icon: Icon, caption, from, to, pattern } = industryCover(workspaceType);
+  const { caption, from, to, pattern } = industryCover(workspaceType);
 
   return (
     <div
@@ -210,10 +210,6 @@ export function IndustryCover({
       >
         <Pattern kind={pattern} />
       </svg>
-      <Icon
-        className="relative ml-4 size-10 text-white/95 drop-shadow-sm"
-        aria-label={`${caption} project cover`}
-      />
       <span className="absolute bottom-1.5 right-2 text-2xs font-medium uppercase tracking-wide text-white/85">
         {caption}
       </span>

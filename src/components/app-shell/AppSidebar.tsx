@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 
-import logoAsset from "@/assets/logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { primaryNav, pinnedNav, type NavItem } from "./nav-items";
@@ -49,7 +48,7 @@ export function AppSidebar() {
         )}
       >
         <img
-          src={logoAsset.url}
+          src="/logo.png"
           alt="LabelFactory"
           className="size-7 shrink-0 rounded-md object-contain"
         />

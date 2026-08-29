@@ -6,6 +6,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Eye,
+  EyeOff,
   Loader2,
   Lock,
   Minus,
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/lib/workspace";
+import { maskForDisplay, sensitiveKeySet } from "@/lib/redact";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/annotate")({
@@ -232,6 +235,26 @@ function AnnotateBody() {
     return map;
   }, [profileQuery.data]);
 
+  // Fields the label profile marks Sensitive get their value and evidence
+  // masked by default — a reviewer can still reveal one to do their job, but
+  // the reveal never persists or leaves this screen (see src/lib/redact.ts).
+  const sensitiveKeys = useMemo(
+    () => sensitiveKeySet(profileQuery.data?.fields),
+    [profileQuery.data],
+  );
+  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setRevealedKeys(new Set());
+  }, [documentId]);
+  function toggleRevealed(fieldKey: string) {
+    setRevealedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(fieldKey)) next.delete(fieldKey);
+      else next.add(fieldKey);
+      return next;
+    });
+  }
+
   const grouped = useMemo(() => {
     const groups = new Map<string, ExtractionRow[]>();
     for (const row of extractions) {
@@ -342,8 +365,13 @@ function AnnotateBody() {
   };
 
   const pageCount = Math.max(activeDocument?.page_count ?? 1, 1);
-  const activeEvidence =
+  const rawActiveEvidence =
     extractions.find((row) => row.field_key === activeField)?.evidence_snippet ?? null;
+  const activeEvidenceHidden =
+    Boolean(activeField) && sensitiveKeys.has(activeField!) && !revealedKeys.has(activeField!);
+  const activeEvidence = activeEvidenceHidden
+    ? maskForDisplay(rawActiveEvidence)
+    : rawActiveEvidence;
 
   if (batchesQuery.isPending) {
     return (
@@ -579,6 +607,8 @@ function AnnotateBody() {
                         const duplicate =
                           value.trim() && (duplicateValues.get(value.trim().toLowerCase()) ?? 0) > 1;
                         const isTable = row.data_type === "multi_value";
+                        const isSensitive = sensitiveKeys.has(row.field_key);
+                        const revealed = revealedKeys.has(row.field_key);
                         return (
                           <li
                             key={row.id}
@@ -595,16 +625,40 @@ function AnnotateBody() {
                             }}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-xs font-medium">
-                                {row.field_label ?? row.field_key}
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="truncate text-xs font-medium">
+                                  {row.field_label ?? row.field_key}
+                                </span>
+                                {isSensitive ? (
+                                  <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                                    Sensitive
+                                  </span>
+                                ) : null}
                               </span>
-                              <span
-                                className={cn(
-                                  "rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
-                                  confidenceTone(confidence),
-                                )}
-                              >
-                                {Math.round(confidence * 100)}%
+                              <span className="flex shrink-0 items-center gap-1">
+                                {isSensitive ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="size-6 p-0"
+                                    aria-label={revealed ? "Hide value" : "Reveal value"}
+                                    onClick={() => toggleRevealed(row.field_key)}
+                                  >
+                                    {revealed ? (
+                                      <EyeOff className="size-3.5" />
+                                    ) : (
+                                      <Eye className="size-3.5" />
+                                    )}
+                                  </Button>
+                                ) : null}
+                                <span
+                                  className={cn(
+                                    "rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+                                    confidenceTone(confidence),
+                                  )}
+                                >
+                                  {Math.round(confidence * 100)}%
+                                </span>
                               </span>
                             </div>
 
@@ -626,6 +680,7 @@ function AnnotateBody() {
                                 ref={(element) => {
                                   fieldRefs.current[row.id] = element;
                                 }}
+                                type={isSensitive && !revealed ? "password" : "text"}
                                 value={value}
                                 disabled={row.review_state === "locked"}
                                 className="mt-1.5 h-8 text-sm"
@@ -697,7 +752,9 @@ function AnnotateBody() {
                             </div>
                             {row.evidence_snippet ? (
                               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                {row.evidence_snippet}
+                                {isSensitive && !revealed
+                                  ? maskForDisplay(row.evidence_snippet)
+                                  : row.evidence_snippet}
                               </p>
                             ) : null}
                           </li>

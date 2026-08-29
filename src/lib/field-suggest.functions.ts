@@ -3,14 +3,22 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+/** The profile's real, catalog-validated model choice — null means "use the
+ *  active provider's default" (see the "Model Selection for Entire Workflow"
+ *  picker in label-profile.tsx and ai-provider.server.ts's model catalog). */
+const modelChoice = z.object({
+  provider: z.enum(["openai", "gemini"]),
+  modelId: z.string().min(1),
+});
+
 const typeInput = z.object({
-  model: z.string().min(1),
+  model: modelChoice.nullable(),
   documentType: z.string().min(1).max(120),
   industry: z.string().min(1).max(60),
 });
 
 const sampleInput = z.object({
-  model: z.string().min(1),
+  model: modelChoice.nullable(),
   documentType: z.string().max(120),
   industry: z.string().max(60),
   filename: z.string().min(1).max(260),
@@ -24,7 +32,13 @@ export const generateFieldsFromType = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => typeInput.parse(data))
   .handler(async ({ data }) => {
     const { suggestFromDocumentType } = await import("./field-suggest.server");
-    const fields = await suggestFromDocumentType(data);
+    const { resolveAiModel, resolveExplicitModel } = await import("./ai-provider.server");
+    const model = data.model ? resolveExplicitModel(data.model.provider, data.model.modelId) : resolveAiModel();
+    const fields = await suggestFromDocumentType({
+      model,
+      documentType: data.documentType,
+      industry: data.industry,
+    });
     return { fields, source: "type" as const, generatedAt: new Date().toISOString() };
   });
 
@@ -33,14 +47,16 @@ export const generateFieldsFromSample = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => sampleInput.parse(data))
   .handler(async ({ data }) => {
     const { extractSampleText, suggestFromSampleText } = await import("./field-suggest.server");
+    const { resolveAiModel, resolveExplicitModel } = await import("./ai-provider.server");
     const { text, pages } = await extractSampleText(data);
     if (text.replace(/\s/g, "").length < 40) {
       throw new Error(
         "No readable text was found in that sample. Scanned/image-only PDFs are not supported yet.",
       );
     }
+    const model = data.model ? resolveExplicitModel(data.model.provider, data.model.modelId) : resolveAiModel();
     const fields = await suggestFromSampleText({
-      model: data.model,
+      model,
       documentType: data.documentType || "unknown",
       industry: data.industry,
       filename: data.filename,
