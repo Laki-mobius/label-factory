@@ -246,9 +246,9 @@ function AdminPage() {
 
   return (
     <AppShell title="Admin Console">
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <nav aria-label="Admin sections" className="panel h-fit shrink-0 p-2 lg:w-52">
-          <div className="flex gap-1 overflow-x-auto lg:flex-col">
+      <div className="space-y-4">
+        <nav aria-label="Admin sections" className="panel h-fit p-2">
+          <div className="flex gap-1 overflow-x-auto">
             {TABS.map((item) => {
               const Icon = item.icon;
               const active = tab === item.id;
@@ -273,7 +273,7 @@ function AdminPage() {
           </div>
         </nav>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {snapshot.isLoading || !data ? (
             <div className="flex justify-center py-16">
               <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading" />

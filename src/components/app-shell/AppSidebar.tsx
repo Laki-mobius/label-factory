@@ -55,7 +55,7 @@ export function AppSidebar() {
         />
         {collapsed ? null : (
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">LabelFactory</div>
+            <div className="text-base font-semibold tracking-tight">LabelFactory</div>
             <div className="text-2xs text-muted-foreground">Document labeling</div>
           </div>
         )}
