@@ -92,7 +92,7 @@ function ProjectsPage() {
       if (error) throw error;
 
       return data;
-    }
+    },
     onSuccess: async () => {
       // Intentional: stay on Projects, no auto-navigation into the new project.
       setOpen(false);
