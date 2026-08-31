@@ -20,6 +20,7 @@ type GroundTruthRow = {
   field_key: string;
   final_value: string | null;
   review_state: string;
+  pii_detected: boolean;
 };
 
 async function loadApprovedDocsWithGroundTruth(supabase: SupabaseClient<any>, batchId: string) {
@@ -41,7 +42,7 @@ async function loadApprovedDocsWithGroundTruth(supabase: SupabaseClient<any>, ba
 
   const { data: extractions, error: exErr } = await supabase
     .from("extractions")
-    .select("document_id, field_key, final_value, review_state")
+    .select("document_id, field_key, final_value, review_state, pii_detected")
     .in(
       "document_id",
       docs.map((doc) => doc.id),
@@ -159,6 +160,7 @@ async function extractAndCompare(
     document_id: string;
     filename: string;
     batch_id: string;
+    pii_detected: boolean;
   }> = [];
 
   for (const doc of docs) {
@@ -184,6 +186,11 @@ async function extractAndCompare(
         document_id: doc.id,
         filename: doc.filename,
         batch_id: doc.batch_id,
+        // The ground-truth row is the ORIGINAL prelabel's own extraction —
+        // it already carries that document's automatic PII-scan result, so
+        // a re-run candidate value being compared against it inherits the
+        // same signal (the candidate wasn't itself scanned).
+        pii_detected: gt?.pii_detected ?? false,
       });
     }
   }

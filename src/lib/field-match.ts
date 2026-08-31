@@ -13,6 +13,11 @@ export type MismatchSample = {
   suggested: string;
   final: string;
   kind: "missed" | "format" | "wrong" | "rejected";
+  /** This document's own automatic PII-scan result for this field (see
+   *  src/lib/pii-scan.server.ts) — independent of, and combined with, the
+   *  label profile's manual per-field Sensitive flag wherever a benchmarking
+   *  screen or third-party eval call decides whether to mask this sample. */
+  pii_detected: boolean;
 };
 
 export type FieldResult = {
@@ -94,6 +99,9 @@ export function classifyComparisons(
     document_id: string;
     filename: string;
     batch_id: string;
+    /** Optional — absent callers (e.g. a row with no matching extraction)
+     *  default to false, same as "no PII found". */
+    pii_detected?: boolean | null;
   }>,
 ): { fields: FieldResult[]; overall: number; comparisons: number } {
   const buckets = new Map<string, FieldResult>();
@@ -132,6 +140,7 @@ export function classifyComparisons(
       batch_id: row.batch_id,
       suggested,
       final,
+      pii_detected: Boolean(row.pii_detected),
     };
 
     if (row.review_state === "rejected") {

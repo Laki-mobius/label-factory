@@ -11,10 +11,18 @@ const modelChoice = z.object({
   modelId: z.string().min(1),
 });
 
+/** Bucket/group names already present in the profile's schema, passed back
+ *  in so a repeat "Suggest fields with AI" / "Generate From Sample" run
+ *  reuses them instead of inventing a parallel set of near-duplicate groups.
+ *  Capped generously — this is a handful of short category names, not user
+ *  content. */
+const existingBuckets = z.array(z.string().max(40)).max(30).optional();
+
 const typeInput = z.object({
   model: modelChoice.nullable(),
   documentType: z.string().min(1).max(120),
   industry: z.string().min(1).max(60),
+  existingBuckets,
 });
 
 const sampleInput = z.object({
@@ -25,6 +33,7 @@ const sampleInput = z.object({
   mimeType: z.string().max(120),
   /** base64 payload, capped well under the request limit. */
   base64: z.string().min(1).max(14_000_000),
+  existingBuckets,
 });
 
 export const generateFieldsFromType = createServerFn({ method: "POST" })
@@ -38,6 +47,7 @@ export const generateFieldsFromType = createServerFn({ method: "POST" })
       model,
       documentType: data.documentType,
       industry: data.industry,
+      existingBuckets: data.existingBuckets,
     });
     return { fields, source: "type" as const, generatedAt: new Date().toISOString() };
   });
@@ -61,6 +71,7 @@ export const generateFieldsFromSample = createServerFn({ method: "POST" })
       industry: data.industry,
       filename: data.filename,
       text,
+      existingBuckets: data.existingBuckets,
     });
     return {
       fields,

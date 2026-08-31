@@ -71,7 +71,7 @@ import {
 } from "@/lib/benchmark-compare.functions";
 import { evaluateBenchmarkRun } from "@/lib/benchmark-eval.functions";
 import { useProjectDashboard } from "@/lib/dashboard-data";
-import { maskForDisplay, sensitiveKeySet } from "@/lib/redact";
+import { isSensitiveValue, maskForDisplay, sensitiveKeySet } from "@/lib/redact";
 import { useWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
@@ -149,7 +149,13 @@ type FieldAttentionEntry = {
   main_category: string | null;
   attention_level: "high" | "medium" | "low";
   suggested_action: string | null;
-  examples: Array<{ document_name: string; category: string; suggested: string; final: string }>;
+  examples: Array<{
+    document_name: string;
+    category: string;
+    suggested: string;
+    final: string;
+    pii_detected: boolean;
+  }>;
 };
 
 type DocumentRiskDoc = {
@@ -601,7 +607,16 @@ function BenchmarkingTab({
   const [selectedVersionIds, setSelectedVersionIds] = useState<string[]>([]);
   const [drilldown, setDrilldown] = useState<FieldResultRow | null>(null);
   const [drilldownRevealed, setDrilldownRevealed] = useState(false);
-  const drilldownSensitive = Boolean(drilldown && sensitiveKeys.has(drilldown.field_key));
+  // Field-level flag from the label profile. Combined per-row below with
+  // each mismatch sample's own automatic pii_detected result (see
+  // isSensitiveValue in @/lib/redact) — a field nobody pre-flagged can still
+  // need masking on a specific document. This one only gates whether the
+  // reveal toggle shows at all, so it's true when EITHER the field itself is
+  // flagged OR any sample in this dialog was auto-detected.
+  const drilldownFieldFlagged = Boolean(drilldown && sensitiveKeys.has(drilldown.field_key));
+  const drilldownSensitive =
+    drilldownFieldFlagged ||
+    ((drilldown?.mismatches as MismatchSample[] | undefined) ?? []).some((sample) => sample.pii_detected);
 
   const profilesQuery = useQuery({
     queryKey: ["benchmark-profiles", projectId],
@@ -1121,7 +1136,8 @@ function BenchmarkingTab({
               </TableHeader>
               <TableBody>
                 {((drilldown?.mismatches ?? []) as MismatchSample[]).map((sample, index) => {
-                  const hidden = drilldownSensitive && !drilldownRevealed;
+                  const hidden =
+                    isSensitiveValue(drilldownFieldFlagged, sample.pii_detected) && !drilldownRevealed;
                   return (
                     <TableRow key={`${sample.document_id}-${index}`}>
                       <TableCell className="max-w-[14rem] truncate text-sm">{sample.filename}</TableCell>
@@ -1367,21 +1383,30 @@ function EvaluationsTab({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-sm font-semibold tracking-tight">{selectedField.field_label}</h3>
-                      {sensitiveKeys.has(selectedField.field_key) ? (
-                        <Badge variant="destructive">Sensitive</Badge>
-                      ) : null}
-                      {sensitiveKeys.has(selectedField.field_key) ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-6"
-                          onClick={() => setExampleRevealed((current) => !current)}
-                          aria-label={exampleRevealed ? "Hide values" : "Reveal values"}
-                        >
-                          {exampleRevealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                        </Button>
-                      ) : null}
+                      {(() => {
+                        // Field-level flag from the label profile, combined
+                        // below (per-example) with each example's own
+                        // automatic pii_detected result — same pattern as
+                        // the mismatch drilldown above.
+                        const fieldFlagged = sensitiveKeys.has(selectedField.field_key);
+                        const anySensitive =
+                          fieldFlagged || selectedField.examples.some((example) => example.pii_detected);
+                        return anySensitive ? (
+                          <>
+                            <Badge variant="destructive">{fieldFlagged ? "Sensitive" : "PII detected"}</Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-6"
+                              onClick={() => setExampleRevealed((current) => !current)}
+                              aria-label={exampleRevealed ? "Hide values" : "Reveal values"}
+                            >
+                              {exampleRevealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                            </Button>
+                          </>
+                        ) : null;
+                      })()}
                     </div>
                     <AttentionBadge level={selectedField.attention_level} />
                   </div>
@@ -1407,7 +1432,9 @@ function EvaluationsTab({
                       </TableHeader>
                       <TableBody>
                         {selectedField.examples.map((example, index) => {
-                          const hidden = sensitiveKeys.has(selectedField.field_key) && !exampleRevealed;
+                          const hidden =
+                            isSensitiveValue(sensitiveKeys.has(selectedField.field_key), example.pii_detected) &&
+                            !exampleRevealed;
                           return (
                             <TableRow key={index}>
                               <TableCell className="max-w-[10rem] truncate text-xs">{example.document_name}</TableCell>

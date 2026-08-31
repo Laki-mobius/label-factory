@@ -42,7 +42,7 @@ export async function computeBenchmark(input: {
   const docById = new Map(docs.map((doc) => [doc.id, doc]));
   const { data: extractions, error: exError } = await supabase
     .from("extractions")
-    .select("document_id, field_key, field_label, suggested_value, final_value, review_state")
+    .select("document_id, field_key, field_label, suggested_value, final_value, review_state, pii_detected")
     .in(
       "document_id",
       docs.map((doc) => doc.id),

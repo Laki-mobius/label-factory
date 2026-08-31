@@ -59,3 +59,39 @@ export function sensitiveKeySet(fields: unknown): Set<string> {
 export function isSensitiveValue(profileFlagged: boolean, piiDetected: boolean | null | undefined): boolean {
   return profileFlagged || Boolean(piiDetected);
 }
+
+/** Escapes a string for safe use inside a `new RegExp(...)`. */
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Blanks out every literal occurrence of the given sensitive values inside a
+ * larger block of free text — for the one place in this app where a whole
+ * document's text (not a single field value) gets sent to a third-party LLM
+ * (Reward AI's preference-candidate drafting, which needs document context).
+ * maskForExport alone can't help there since it only ever sees one field's
+ * value at a time, never the surrounding prose the value might also appear
+ * in. This is a blunt, exact-substring pass — not a general PII scan of the
+ * free text itself — so it only catches values ALREADY known to be
+ * sensitive (profile-flagged or pii_detected), not other PII that happens
+ * to be nearby in the document and was never extracted into a field.
+ */
+export function redactSensitiveSpansFromText(
+  text: string,
+  sensitiveValues: Array<string | null | undefined>,
+): string {
+  let result = text;
+  const seen = new Set<string>();
+  for (const raw of sensitiveValues) {
+    const value = (raw ?? "").trim();
+    // Skip empty/very short values — redacting a 1-2 character match would
+    // blank out unrelated text throughout the document.
+    if (value.length < 3) continue;
+    const dedupeKey = value.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    result = result.replace(new RegExp(escapeForRegex(value), "gi"), "[REDACTED]");
+  }
+  return result;
+}

@@ -9,7 +9,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Lock,
   Minus,
   Plus,
   Trash2,
@@ -18,6 +17,8 @@ import {
 import { toast } from "sonner";
 
 import { SectionPage } from "@/components/app-shell/SectionPage";
+import { PdfTextViewer, type PdfTextSelection } from "@/components/annotate/PdfTextViewer";
+import { MapSelectionPopover } from "@/components/annotate/MapSelectionPopover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,15 +56,6 @@ export const Route = createFileRoute("/annotate")({
   }),
   component: AnnotateRoute,
 });
-
-const BUCKET_ORDER = [
-  "Document Details",
-  "Parties & Entities",
-  "Financial Information",
-  "Dates & Timeline",
-  "Transaction Details",
-  "Miscellaneous",
-];
 
 const READY_STATES = ["prelabeled", "in_review"];
 
@@ -118,7 +110,7 @@ function AnnotateRoute() {
   return (
     <SectionPage
       title="Annotate & Label"
-      description="Review AI-suggested values side by side with source evidence, then accept, correct, reject or lock each field."
+      description="Review AI-suggested values side by side with source evidence, then approve, correct, or reject each field."
     >
       <AnnotateBody />
     </SectionPage>
@@ -135,6 +127,23 @@ function AnnotateBody() {
   const [zoom, setZoom] = useState(100);
   const [queueOpen, setQueueOpen] = useState(true);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Map Selection: the reviewer selected text on the rendered PDF and this
+  // popup is asking which field to assign it to. Null when no selection is
+  // pending. See PdfTextViewer's onSelectText / MapSelectionPopover.
+  const [selectionPopup, setSelectionPopup] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  // If the PDF.js-based viewer can't load this particular file (CORS,
+  // corrupt/unusual PDF, etc.) fall back to the plain browser-native
+  // iframe viewer rather than showing the reviewer a dead panel — they lose
+  // on-document highlighting and Map Selection for that one document, but
+  // can still see and review it.
+  const [pdfViewerFailed, setPdfViewerFailed] = useState(false);
+  useEffect(() => {
+    setPdfViewerFailed(false);
+  }, [documentId]);
 
   const batchesQuery = useQuery({
     queryKey: ["annotate-batches", projectId],
@@ -264,15 +273,18 @@ function AnnotateBody() {
     });
   }
 
+  // Bucket names are dynamic (AI-invented per document type — see
+  // field-suggest.server.ts), so there is no fixed order to sort by. `groups`
+  // is a Map, which preserves insertion order, and `extractions` is already
+  // queried ordered by created_at ascending, so buckets naturally come out in
+  // the same order fields were added to the schema.
   const grouped = useMemo(() => {
     const groups = new Map<string, ExtractionRow[]>();
     for (const row of extractions) {
       const bucket = bucketByKey.get(row.field_key) ?? "Miscellaneous";
       groups.set(bucket, [...(groups.get(bucket) ?? []), row]);
     }
-    return [...groups.entries()].sort(
-      (a, b) => BUCKET_ORDER.indexOf(a[0]) - BUCKET_ORDER.indexOf(b[0]),
-    );
+    return [...groups.entries()];
   }, [extractions, bucketByKey]);
 
   const valueOf = (row: ExtractionRow) =>
@@ -353,7 +365,17 @@ function AnnotateBody() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const markReviewedAndAdvance = (row: ExtractionRow) => {
+  // "Approved" replaces the old separate Reviewed + Lock buttons: it both
+  // confirms the field's value (accepted/corrected, same as before) AND
+  // freezes its input (see the `disabled` checks below), so a field can't
+  // be accidentally edited again after it's been approved — the one thing
+  // Lock used to do on its own. Nothing downstream (RLHF, Reward AI,
+  // Benchmarking) ever branched on the old "locked" state, so folding it
+  // into this single action changes nothing for them except making sure a
+  // corrected-then-approved field always lands as "corrected" (previously,
+  // clicking Lock instead of Reviewed after an edit silently kept it out
+  // of Reward AI's correction-reason drafting and RLHF exports).
+  const markApprovedAndAdvance = (row: ExtractionRow) => {
     saveField.mutate({
       id: row.id,
       patch: {
@@ -361,7 +383,7 @@ function AnnotateBody() {
         review_state: valueOf(row) === (row.suggested_value ?? "") ? "accepted" : "corrected",
       },
     });
-    toast.success(`${row.field_label ?? row.field_key} reviewed`);
+    toast.success(`${row.field_label ?? row.field_key} approved`);
     const pending = extractions.filter(
       (item) => item.review_state === "pending" && item.id !== row.id,
     );
@@ -383,6 +405,56 @@ function AnnotateBody() {
   const activeEvidence = activeEvidenceHidden
     ? maskForDisplay(rawActiveEvidence)
     : rawActiveEvidence;
+
+  // Every already-extracted field's evidence gets a highlight box on the
+  // rendered PDF — not just whichever one is currently focused (that one
+  // gets a stronger border so it still stands out). Table/line-item fields
+  // are skipped (no single span to box), as are fields whose evidence is
+  // recorded for a different page. Same reveal-gating as the evidence
+  // banner/masked input above — never hand a hidden sensitive field's real
+  // text to the viewer to search for and box on screen.
+  const pageHighlights = useMemo(() => {
+    const items: { id: string; text: string; active: boolean }[] = [];
+    for (const row of extractions) {
+      if (row.data_type === "multi_value") continue;
+      if (row.evidence_page != null && row.evidence_page !== page) continue;
+      const hidden =
+        isSensitiveValue(sensitiveKeys.has(row.field_key), row.pii_detected) &&
+        !revealedKeys.has(row.field_key);
+      if (hidden) continue;
+      const text = (row.evidence_snippet ?? valueOf(row)).trim();
+      if (!text) continue;
+      items.push({ id: row.field_key, text, active: row.field_key === activeField });
+    }
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extractions, page, sensitiveKeys, revealedKeys, activeField, drafts]);
+
+  // Fields a Map Selection can be assigned to — line-item/table fields are
+  // excluded since a single selected string can't populate a whole table.
+  const mappableFields = extractions.filter((row) => row.data_type !== "multi_value");
+
+  function handleMapSelection(fieldKey: string) {
+    const row = extractions.find((item) => item.field_key === fieldKey);
+    const text = selectionPopup?.text ?? "";
+    if (!row || !text) return;
+    saveField.mutate({
+      id: row.id,
+      patch: {
+        final_value: text,
+        review_state: text === (row.suggested_value ?? "") ? "accepted" : "corrected",
+      },
+    });
+    setDrafts((current) => ({ ...current, [row.id]: text }));
+    setActiveField(row.field_key);
+    setSelectionPopup(null);
+    toast.success(`Mapped selection to ${row.field_label ?? row.field_key}`);
+  }
+
+  function handleSelectText(selection: PdfTextSelection) {
+    if (mappableFields.length === 0) return;
+    setSelectionPopup({ text: selection.text, x: selection.clientX, y: selection.clientY });
+  }
 
   if (batchesQuery.isPending) {
     return (
@@ -552,7 +624,7 @@ function AnnotateBody() {
             </p>
           ) : null}
 
-          <div className="mt-2 flex-1 overflow-hidden rounded-md border border-border bg-muted/30">
+          <div className="relative mt-2 flex-1 overflow-hidden rounded-md border border-border bg-muted/30">
             {!activeDocument ? (
               <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
                 Select a document from the queue to start reviewing.
@@ -562,22 +634,49 @@ function AnnotateBody() {
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
               </div>
             ) : fileUrlQuery.data ? (
-              <iframe
-                key={`${fileUrlQuery.data}-${page}-${zoom}`}
-                title={`Document preview: ${activeDocument.filename}`}
-                src={
-                  activeDocument.file_type === "pdf"
-                    ? `${fileUrlQuery.data}#page=${page}&zoom=${zoom}`
-                    : fileUrlQuery.data
-                }
-                className="h-full min-h-[460px] w-full"
-              />
+              activeDocument.file_type === "pdf" && !pdfViewerFailed ? (
+                <PdfTextViewer
+                  key={fileUrlQuery.data}
+                  fileUrl={fileUrlQuery.data}
+                  page={page}
+                  zoom={zoom}
+                  highlights={pageHighlights}
+                  onSelectText={handleSelectText}
+                  onError={() => setPdfViewerFailed(true)}
+                  className="h-full min-h-[460px]"
+                />
+              ) : (
+                <iframe
+                  key={`${fileUrlQuery.data}-${page}-${zoom}`}
+                  title={`Document preview: ${activeDocument.filename}`}
+                  src={
+                    activeDocument.file_type === "pdf"
+                      ? `${fileUrlQuery.data}#page=${page}&zoom=${zoom}`
+                      : fileUrlQuery.data
+                  }
+                  className="h-full min-h-[460px] w-full"
+                />
+              )
             ) : (
               <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
                 The source file could not be loaded.
               </div>
             )}
           </div>
+          {selectionPopup ? (
+            <MapSelectionPopover
+              text={selectionPopup.text}
+              x={selectionPopup.x}
+              y={selectionPopup.y}
+              candidates={mappableFields.map((row) => ({
+                key: row.field_key,
+                label: row.field_label ?? row.field_key,
+                currentValue: valueOf(row),
+              }))}
+              onPick={handleMapSelection}
+              onDismiss={() => setSelectionPopup(null)}
+            />
+          ) : null}
         </div>
 
         {/* Review panel */}
@@ -689,7 +788,7 @@ function AnnotateBody() {
                             {isTable ? (
                               <LineItemEditor
                                 value={value}
-                                disabled={row.review_state === "locked"}
+                                disabled={row.review_state === "accepted" || row.review_state === "corrected"}
                                 onChange={(next) =>
                                   setDrafts((current) => ({ ...current, [row.id]: next }))
                                 }
@@ -706,7 +805,7 @@ function AnnotateBody() {
                                 }}
                                 type={isSensitive && !revealed ? "password" : "text"}
                                 value={value}
-                                disabled={row.review_state === "locked"}
+                                disabled={row.review_state === "accepted" || row.review_state === "corrected"}
                                 className="mt-1.5 h-8 text-sm"
                                 aria-label={row.field_label ?? row.field_key}
                                 onChange={(event) =>
@@ -718,7 +817,7 @@ function AnnotateBody() {
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter") {
                                     event.preventDefault();
-                                    markReviewedAndAdvance(row);
+                                    markApprovedAndAdvance(row);
                                   }
                                 }}
                               />
@@ -735,9 +834,9 @@ function AnnotateBody() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 px-1.5 text-xs"
-                                onClick={() => markReviewedAndAdvance(row)}
+                                onClick={() => markApprovedAndAdvance(row)}
                               >
-                                <Check className="mr-1 size-3" /> Reviewed
+                                <Check className="mr-1 size-3" /> Approve
                               </Button>
                               <Button
                                 size="sm"
@@ -751,19 +850,6 @@ function AnnotateBody() {
                                 }
                               >
                                 <X className="mr-1 size-3" /> Reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-1.5 text-xs"
-                                onClick={() =>
-                                  saveField.mutate({
-                                    id: row.id,
-                                    patch: { final_value: value, review_state: "locked" },
-                                  })
-                                }
-                              >
-                                <Lock className="mr-1 size-3" /> Lock
                               </Button>
                               <Button
                                 size="sm"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -55,13 +54,13 @@ export const Route = createFileRoute("/label-profile")({
       {
         name: "description",
         content:
-          "Define versioned extraction schemas: pick library fields, generate them with AI, or read a real sample document.",
+          "Define versioned extraction schemas: generate fields with AI, read a real sample document, or add them manually.",
       },
       { property: "og:title", content: "Label Profile — LabelFactory" },
       {
         property: "og:description",
         content:
-          "Define versioned extraction schemas: pick library fields, generate them with AI, or read a real sample document.",
+          "Define versioned extraction schemas: generate fields with AI, read a real sample document, or add them manually.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -70,14 +69,10 @@ export const Route = createFileRoute("/label-profile")({
   component: LabelProfileRoute,
 });
 
-const BUCKETS = [
-  "Document Details",
-  "Parties & Entities",
-  "Financial Information",
-  "Dates & Timeline",
-  "Transaction Details",
-  "Miscellaneous",
-] as const;
+/** Fallback bucket name used only when a field somehow arrives with none —
+ *  buckets are otherwise dynamic, invented per document type (see
+ *  field-suggest.server.ts) or typed freely in the Manual Add dialog. */
+const FALLBACK_BUCKET = "Miscellaneous";
 
 const DATA_TYPES = [
   { value: "text", label: "Text" },
@@ -155,33 +150,6 @@ function confidenceLevel(confidence: number | undefined): {
   return { label: "Weak", dotClass: "bg-red-500" };
 }
 
-type LibraryField = {
-  id: string;
-  bucket: string;
-  key: string;
-  display_name: string;
-  data_type: DataType;
-  description: string | null;
-  sort_order: number;
-  label_hints: string[] | null;
-  confusion_hints: string[] | null;
-  validation_regex: string | null;
-};
-
-/** Picks up a library entry's curated guidance for a given key, if one exists. */
-function findLibraryHints(
-  library: LibraryField[],
-  key: string,
-): Pick<SelectedField, "label_hints" | "confusion_hints" | "validation_regex"> | null {
-  const entry = library.find((f) => f.key === key);
-  if (!entry) return null;
-  return {
-    label_hints: entry.label_hints ?? [],
-    confusion_hints: entry.confusion_hints ?? [],
-    validation_regex: entry.validation_regex ?? undefined,
-  };
-}
-
 type ProfileRow = {
   id: string;
   name: string;
@@ -217,7 +185,6 @@ function LabelProfileScreen() {
   const [selected, setSelected] = useState<SelectedField[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
-  const [openBuckets, setOpenBuckets] = useState<string[]>([]);
   const [expandedFieldKey, setExpandedFieldKey] = useState<string | null>(null);
   const [sampleStatus, setSampleStatus] = useState<{
     filename: string;
@@ -227,20 +194,6 @@ function LabelProfileScreen() {
     at: string;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const libraryQuery = useQuery({
-    queryKey: ["field-library"],
-    queryFn: async (): Promise<LibraryField[]> => {
-      const { data, error } = await supabase
-        .from("field_library")
-        .select(
-          "id, bucket, key, display_name, data_type, description, sort_order, label_hints, confusion_hints, validation_regex",
-        )
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as LibraryField[];
-    },
-  });
 
   // Read-only status of the active provider — used to describe what
   // "Default" resolves to in the model picker below.
@@ -299,7 +252,7 @@ function LabelProfileScreen() {
         key: field.key,
         display_name: field.display_name,
         data_type: field.data_type,
-        bucket: field.bucket ?? "Miscellaneous",
+        bucket: field.bucket || FALLBACK_BUCKET,
         description: field.description ?? "",
         origin: field.origin ?? "library",
         confidence: field.confidence,
@@ -323,72 +276,74 @@ function LabelProfileScreen() {
 
   const selectedKeys = useMemo(() => new Set(selected.map((f) => f.key)), [selected]);
 
-  // AI-proposed fields and Universal Field Library fields both land in
-  // `selected`, keyed by field key. When a key exists on both sides — AI
-  // independently proposed something the library already curates, or the
-  // library box is checked for a field AI already proposed — the entry is
-  // upgraded to origin "common" and gains the library's label/confusion
-  // hints, which are what actually get fed into the extraction prompt.
-  function mergeFields(incoming: SelectedField[]): { added: number; confirmed: number } {
-    const library = libraryQuery.data ?? [];
-    let added = 0;
-    let confirmed = 0;
-    setSelected((current) => {
-      const next = [...current];
-      added = 0;
-      confirmed = 0;
-      for (const field of incoming) {
-        const hints = findLibraryHints(library, field.key);
-        const existingIndex = next.findIndex((f) => f.key === field.key);
-        if (existingIndex !== -1) {
-          if (hints && next[existingIndex].origin !== "manual") {
-            confirmed++;
-            next[existingIndex] = {
-              ...next[existingIndex],
-              origin: "common",
-              ...hints,
-              confidence: field.confidence ?? next[existingIndex].confidence,
-            };
-          }
-          continue;
-        }
-        added++;
-        next.push(hints ? { ...field, origin: "common", ...hints } : field);
+  // Dynamic bucket names, in first-appearance order — the schema's grouping
+  // is entirely driven by what AI proposed / what samples produced / what was
+  // typed manually, not a fixed taxonomy.
+  const bucketsInUse = useMemo(() => {
+    const seen = new Set<string>();
+    const order: string[] = [];
+    for (const field of selected) {
+      const bucket = field.bucket || FALLBACK_BUCKET;
+      if (!seen.has(bucket)) {
+        seen.add(bucket);
+        order.push(bucket);
       }
-      return next;
-    });
-    return { added, confirmed };
-  }
+    }
+    return order;
+  }, [selected]);
 
-  function toggleLibraryField(field: LibraryField, checked: boolean) {
-    setSelected((current) => {
-      if (!checked) return current.filter((f) => f.key !== field.key);
-      const hints = {
-        label_hints: field.label_hints ?? [],
-        confusion_hints: field.confusion_hints ?? [],
-        validation_regex: field.validation_regex ?? undefined,
-      };
-      const existingIndex = current.findIndex((f) => f.key === field.key);
-      if (existingIndex !== -1) {
-        const existing = current[existingIndex];
-        if (existing.origin === "manual") return current;
-        const next = [...current];
-        next[existingIndex] = { ...existing, origin: "common", ...hints };
-        return next;
+  // Which group's table is showing. Kept in sync with bucketsInUse: falls
+  // back to the first group whenever the current tab disappears (its last
+  // field was removed/renamed) or nothing is selected yet.
+  const [activeBucketTab, setActiveBucketTab] = useState<string | null>(null);
+  useEffect(() => {
+    if (bucketsInUse.length === 0) {
+      setActiveBucketTab(null);
+      return;
+    }
+    setActiveBucketTab((current) =>
+      current && bucketsInUse.includes(current) ? current : bucketsInUse[0],
+    );
+  }, [bucketsInUse]);
+
+  // AI-proposed fields (from a document type or a sample) land in `selected`,
+  // keyed by field key. Fields already present (e.g. re-run "Suggest fields
+  // with AI") are left untouched rather than duplicated.
+  //
+  // Bucket names are also canonicalized case-insensitively here: the AI is
+  // told to reuse existing group names (see field-suggest.server.ts), but as
+  // a belt-and-suspenders safety net — in case it returns "Financial
+  // information" when the schema already has "Financial Information" — any
+  // incoming bucket that matches an existing one except for case is folded
+  // into the existing spelling, so it never becomes a second, near-duplicate
+  // group. This also collapses case-only duplicates *within* one AI response.
+  //
+  // The added count is computed here, directly against the `selected` from
+  // this render, rather than inside the setSelected updater callback — that
+  // callback is not guaranteed to run synchronously, so reading the count
+  // right after calling setSelected could read it before the updater ever
+  // ran. That was the cause of the toast/status panel showing "0 fields
+  // proposed" even though the fields were correctly added to the table.
+  function mergeFields(incoming: SelectedField[]): { added: number } {
+    const existingKeysNow = new Set(selected.map((f) => f.key));
+    const bucketByLower = new Map<string, string>();
+    for (const f of selected) bucketByLower.set(f.bucket.toLowerCase(), f.bucket);
+    const toAdd: SelectedField[] = [];
+    for (const field of incoming) {
+      if (existingKeysNow.has(field.key)) continue;
+      if (toAdd.some((f) => f.key === field.key)) continue;
+      const canonical = bucketByLower.get(field.bucket.toLowerCase());
+      if (canonical) {
+        toAdd.push({ ...field, bucket: canonical });
+      } else {
+        bucketByLower.set(field.bucket.toLowerCase(), field.bucket);
+        toAdd.push(field);
       }
-      return [
-        ...current,
-        {
-          key: field.key,
-          display_name: field.display_name,
-          data_type: field.data_type,
-          bucket: field.bucket,
-          description: field.description ?? "",
-          origin: "library",
-          ...hints,
-        },
-      ];
-    });
+    }
+    if (toAdd.length > 0) {
+      setSelected((current) => [...current, ...toAdd]);
+    }
+    return { added: toAdd.length };
   }
 
   function updateField(key: string, patch: Partial<SelectedField>) {
@@ -408,18 +363,16 @@ function LabelProfileScreen() {
           model: selectedModel,
           documentType: documentType.trim(),
           industry: activeProject?.workspace_type ?? "general",
+          existingBuckets: bucketsInUse,
         },
       });
     },
     onSuccess: (result) => {
-      const { added, confirmed } = mergeFields(
+      const { added } = mergeFields(
         result.fields.map((field) => ({ ...field, origin: "ai_type" as const })),
       );
       toast.success(
-        `AI proposed ${added} new field${added === 1 ? "" : "s"} for "${documentType.trim()}"` +
-          (confirmed > 0
-            ? ` and confirmed ${confirmed} library field${confirmed === 1 ? "" : "s"} as Common.`
-            : "."),
+        `AI proposed ${added} new field${added === 1 ? "" : "s"} for "${documentType.trim()}".`,
       );
     },
     onError: (error: Error) => toast.error(error.message),
@@ -441,11 +394,12 @@ function LabelProfileScreen() {
           filename: file.name,
           mimeType: file.type || "application/octet-stream",
           base64: btoa(binary),
+          existingBuckets: bucketsInUse,
         },
       });
     },
     onSuccess: (result, file) => {
-      const { added, confirmed } = mergeFields(
+      const { added } = mergeFields(
         result.fields.map((field) => ({ ...field, origin: "ai_sample" as const })),
       );
       setSampleStatus({
@@ -456,10 +410,7 @@ function LabelProfileScreen() {
         at: result.generatedAt,
       });
       toast.success(
-        `Analysed ${file.name} and proposed ${added} new field${added === 1 ? "" : "s"}` +
-          (confirmed > 0
-            ? ` (confirmed ${confirmed} library field${confirmed === 1 ? "" : "s"} as Common).`
-            : "."),
+        `Analysed ${file.name} and proposed ${added} new field${added === 1 ? "" : "s"}.`,
       );
     },
     onError: (error: Error) => toast.error(error.message),
@@ -563,7 +514,6 @@ function LabelProfileScreen() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const bucketsTouched = new Set(selected.map((f) => f.bucket));
   const busy = aiTypeMutation.isPending || sampleMutation.isPending;
 
   return (
@@ -768,87 +718,8 @@ function LabelProfileScreen() {
         ) : null}
       </section>
 
-      {/* Three columns */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,0.8fr)]">
-        {/* Library */}
-        <section className="panel p-4">
-          <h2 className="text-sm font-semibold tracking-tight">Universal Field Library</h2>
-          <p className="mt-1 text-2xs text-muted-foreground">
-            Shared catalog with curated extraction guidance — label variants to look for and
-            confusable fields to avoid, fed straight into extraction. If AI independently proposes
-            one of these fields too, it's marked <span className="font-medium">Common</span>.
-          </p>
-          {libraryQuery.isPending ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {BUCKETS.map((bucket) => {
-                const fields = (libraryQuery.data ?? []).filter((f) => f.bucket === bucket);
-                const count = fields.filter((f) => selectedKeys.has(f.key)).length;
-                const open = openBuckets.includes(bucket);
-                return (
-                  <div key={bucket} className="rounded-md border border-border">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium"
-                      aria-expanded={open}
-                      onClick={() =>
-                        setOpenBuckets((current) =>
-                          current.includes(bucket)
-                            ? current.filter((b) => b !== bucket)
-                            : [...current, bucket],
-                        )
-                      }
-                    >
-                      <ChevronDown
-                        className={cn("size-3.5 transition-transform", !open && "-rotate-90")}
-                      />
-                      <span className="flex-1">{bucket}</span>
-                      <span className="text-2xs text-muted-foreground">
-                        {count} selected / {fields.length}
-                      </span>
-                    </button>
-                    {open ? (
-                      <div className="space-y-1.5 border-t border-border px-3 py-2">
-                        {fields.length === 0 ? (
-                          <p className="text-2xs text-muted-foreground">No fields in bucket.</p>
-                        ) : null}
-                        {fields.map((field) => (
-                          <label
-                            key={field.id}
-                            className="flex cursor-pointer items-start gap-2 text-xs"
-                          >
-                            <Checkbox
-                              className="mt-0.5"
-                              checked={selectedKeys.has(field.key)}
-                              onCheckedChange={(value) =>
-                                toggleLibraryField(field, value === true)
-                              }
-                              aria-label={field.display_name}
-                            />
-                            <span>
-                              <span className="font-medium">{field.display_name}</span>
-                              <span className="block text-2xs text-muted-foreground">
-                                {field.key} · {field.data_type}
-                                {(field.label_hints?.length ?? 0) > 0 ||
-                                (field.confusion_hints?.length ?? 0) > 0
-                                  ? " · guided"
-                                  : ""}
-                              </span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
+      {/* Two columns */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.55fr)]">
         {/* Selected */}
         <section className="panel p-4">
           <div className="flex items-center gap-2">
@@ -859,165 +730,114 @@ function LabelProfileScreen() {
           </div>
           {selected.length === 0 ? (
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              No fields yet. Check items from the library, run Suggest fields with AI, analyse a
-              sample, or add one manually.
+              No fields yet. Run Suggest fields with AI, analyse a sample, or add one manually.
             </p>
           ) : (
-            <div className="mt-3 space-y-3">
-              {BUCKETS.filter((bucket) => selected.some((f) => f.bucket === bucket)).map(
-                (bucket) => (
-                  <div key={bucket}>
-                    <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="mt-3">
+              {/* Group tabs — one per dynamic bucket, active tab in the theme color */}
+              <div className="flex flex-wrap gap-1.5 border-b border-border pb-2">
+                {bucketsInUse.map((bucket) => {
+                  const active = activeBucketTab === bucket;
+                  const count = selected.filter((f) => f.bucket === bucket).length;
+                  return (
+                    <Button
+                      key={bucket}
+                      type="button"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      className="h-7 gap-1.5 px-2.5 text-xs"
+                      aria-pressed={active}
+                      onClick={() => setActiveBucketTab(bucket)}
+                    >
                       {bucket}
-                    </h3>
-                    <div className="mt-1.5 space-y-2">
-                      {selected
-                        .filter((field) => field.bucket === bucket)
-                        .map((field) => (
-                          <div
-                            key={field.key}
-                            className={cn(
-                              "rounded-md border p-2.5 transition-colors",
-                              expandedFieldKey === field.key
-                                ? "border-primary/40 bg-primary-soft"
-                                : "border-border",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 text-left"
-                              aria-expanded={expandedFieldKey === field.key}
-                              onClick={() =>
-                                setExpandedFieldKey((current) =>
-                                  current === field.key ? null : field.key,
-                                )
-                              }
-                            >
-                              <ChevronDown
-                                className={cn(
-                                  "size-3.5 shrink-0 transition-transform",
-                                  expandedFieldKey !== field.key && "-rotate-90",
-                                  expandedFieldKey === field.key && "text-primary-soft-foreground",
-                                )}
-                              />
-                              <span
-                                className={cn(
-                                  "truncate text-xs font-medium",
-                                  expandedFieldKey === field.key && "text-primary-soft-foreground",
-                                )}
-                              >
-                                {field.display_name}
-                              </span>
-                              {field.origin === "common" ? (
-                                <Badge className="text-2xs">
-                                  Common
-                                  {typeof field.confidence === "number"
-                                    ? ` · ${Math.round(field.confidence * 100)}%`
-                                    : ""}
-                                </Badge>
-                              ) : field.origin === "ai_type" || field.origin === "ai_sample" ? (
-                                <Badge className="text-2xs">
-                                  AI
-                                  {typeof field.confidence === "number"
-                                    ? ` · ${Math.round(field.confidence * 100)}%`
-                                    : ""}
-                                </Badge>
-                              ) : field.origin === "library" ? (
-                                <Badge variant="outline" className="text-2xs">
-                                  Library
-                                </Badge>
-                              ) : null}
-                              {field.origin === "manual" ? (
-                                <Badge variant="outline" className="text-2xs">
-                                  Custom
-                                </Badge>
-                              ) : null}
-                              {field.sensitive ? (
-                                <Badge variant="destructive" className="text-2xs">
-                                  Sensitive
-                                </Badge>
-                              ) : null}
-                            </button>
-                            {expandedFieldKey === field.key ? (
-                              <>
-                            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                              <Input
-                                value={field.key}
-                                onChange={(event) =>
-                                  updateField(field.key, { key: event.target.value })
-                                }
-                                aria-label={`Field key for ${field.display_name}`}
-                                className="h-7 text-xs"
-                              />
-                              <Input
-                                value={field.display_name}
-                                onChange={(event) =>
-                                  updateField(field.key, { display_name: event.target.value })
-                                }
-                                aria-label={`Display label for ${field.display_name}`}
-                                className="h-7 text-xs"
-                              />
-                              <Select
-                                value={field.data_type}
-                                onValueChange={(value) =>
-                                  updateField(field.key, { data_type: value as DataType })
-                                }
-                              >
-                                <SelectTrigger
-                                  className="h-7 text-xs"
-                                  aria-label={`Data type for ${field.display_name}`}
-                                >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DATA_TYPES.map((type) => (
-                                    <SelectItem
-                                      key={type.value}
-                                      value={type.value}
-                                      className="text-xs"
-                                    >
-                                      {type.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="mt-1.5 flex items-start gap-1.5 text-2xs text-muted-foreground">
-                              <span
-                                className={cn(
-                                  "mt-1 size-1.5 shrink-0 rounded-full",
-                                  confidenceLevel(field.confidence).dotClass,
-                                )}
-                                aria-hidden="true"
-                              />
-                              <span>
-                                <span className="font-medium">
-                                  {confidenceLevel(field.confidence).label}
-                                </span>
-                                {field.description ? `  ${field.description}` : ""}
-                              </span>
-                            </div>
-                            {(field.label_hints?.length ?? 0) > 0 ||
-                            (field.confusion_hints?.length ?? 0) > 0 ? (
-                              <p className="mt-1 pl-3 text-2xs text-muted-foreground/80">
-                                {field.label_hints?.length
-                                  ? `Looks for: ${field.label_hints.slice(0, 3).join(", ")}${
-                                      field.label_hints.length > 3 ? "…" : ""
-                                    }`
-                                  : ""}
-                                {field.label_hints?.length && field.confusion_hints?.length
-                                  ? " · "
-                                  : ""}
-                                {field.confusion_hints?.length
-                                  ? `Avoid confusing with: ${field.confusion_hints
-                                      .slice(0, 2)
-                                      .join(", ")}${field.confusion_hints.length > 2 ? "…" : ""}`
-                                  : ""}
-                              </p>
-                            ) : null}
+                      <span className={cn("text-2xs", active ? "opacity-80" : "text-muted-foreground")}>
+                        {count}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
 
-                            <div className="mt-2.5 flex flex-wrap items-center gap-4 border-t border-border pt-2">
-                              <label className="flex items-center gap-1.5 text-2xs">
+              {/* Active group's fields */}
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-left text-2xs uppercase tracking-wide text-muted-foreground">
+                      <th className="w-56 pb-1.5 pr-2 font-semibold">Data Field</th>
+                      <th className="w-36 pb-1.5 pr-2 font-semibold">Identifiers</th>
+                      <th className="w-20 pb-1.5 pr-2 font-semibold">Source</th>
+                      <th className="w-14 pb-1.5 pr-2 text-center font-semibold">Multi</th>
+                      <th className="w-16 pb-1.5 pr-2 text-center font-semibold">Sensitive</th>
+                      <th className="pb-1.5 pr-2 font-semibold">Extraction Prompt</th>
+                      <th className="w-8 pb-1.5 font-semibold" aria-hidden="true" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected
+                      .filter((field) => field.bucket === activeBucketTab)
+                      .map((field) => {
+                        const expanded = expandedFieldKey === field.key;
+                        return (
+                          <Fragment key={field.key}>
+                            <tr className={cn("border-b border-border/60", expanded && "bg-primary-soft")}>
+                              <td className="py-1.5 pr-2 align-top">
+                                <div className="flex items-start gap-1">
+                                  <button
+                                    type="button"
+                                    className="mt-1.5 shrink-0"
+                                    aria-label={expanded ? "Collapse field details" : "Expand field details"}
+                                    aria-expanded={expanded}
+                                    onClick={() =>
+                                      setExpandedFieldKey((current) =>
+                                        current === field.key ? null : field.key,
+                                      )
+                                    }
+                                  >
+                                    <ChevronDown
+                                      className={cn(
+                                        "size-3.5 text-muted-foreground transition-transform",
+                                        !expanded && "-rotate-90",
+                                      )}
+                                    />
+                                  </button>
+                                  <Input
+                                    value={field.display_name}
+                                    onChange={(event) =>
+                                      updateField(field.key, { display_name: event.target.value })
+                                    }
+                                    aria-label={`Display label for ${field.display_name}`}
+                                    className="h-7 text-xs"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-1.5 pr-2 align-top">
+                                <Input
+                                  value={field.key}
+                                  onChange={(event) =>
+                                    updateField(field.key, { key: event.target.value })
+                                  }
+                                  aria-label={`Field key for ${field.display_name}`}
+                                  className="h-7 font-mono text-xs"
+                                />
+                              </td>
+                              <td className="py-1.5 pr-2 align-top">
+                                {field.origin === "ai_type" ? (
+                                  <Badge className="text-2xs">AI</Badge>
+                                ) : field.origin === "ai_sample" ? (
+                                  <Badge className="text-2xs">Sample</Badge>
+                                ) : field.origin === "manual" ? (
+                                  <Badge variant="outline" className="text-2xs">
+                                    Manual
+                                  </Badge>
+                                ) : field.origin === "common" ? (
+                                  <Badge className="text-2xs">Common</Badge>
+                                ) : field.origin === "library" ? (
+                                  <Badge variant="outline" className="text-2xs">
+                                    Library
+                                  </Badge>
+                                ) : null}
+                              </td>
+                              <td className="py-1.5 pr-2 text-center align-top">
                                 <Switch
                                   checked={field.multi ?? false}
                                   onCheckedChange={(checked) =>
@@ -1025,9 +845,8 @@ function LabelProfileScreen() {
                                   }
                                   aria-label={`Multi for ${field.display_name}`}
                                 />
-                                Multi
-                              </label>
-                              <label className="flex items-center gap-1.5 text-2xs">
+                              </td>
+                              <td className="py-1.5 pr-2 text-center align-top">
                                 <Switch
                                   checked={field.sensitive ?? false}
                                   onCheckedChange={(checked) =>
@@ -1035,65 +854,119 @@ function LabelProfileScreen() {
                                   }
                                   aria-label={`Sensitive for ${field.display_name}`}
                                 />
-                                Sensitive
-                              </label>
-                            </div>
-
-                            <div className="mt-2 space-y-1">
-                              <Label className="flex items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                <Sparkles className="size-3" /> Extraction Prompt
-                              </Label>
-                              <Textarea
-                                value={field.extraction_prompt ?? ""}
-                                onChange={(event) =>
-                                  updateField(field.key, { extraction_prompt: event.target.value })
-                                }
-                                placeholder={field.description || `Extract ${field.display_name}.`}
-                                className="min-h-14 text-xs"
-                                aria-label={`Extraction prompt for ${field.display_name}`}
-                              />
-                            </div>
-
-                            <div className="mt-2 flex items-center justify-between">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 gap-1 px-2 text-2xs"
-                                onClick={() => describeMutation.mutate(field)}
-                                disabled={
-                                  describeMutation.isPending &&
-                                  describeMutation.variables?.key === field.key
-                                }
-                              >
-                                {describeMutation.isPending &&
-                                describeMutation.variables?.key === field.key ? (
-                                  <Loader2 className="size-3 animate-spin" />
-                                ) : (
-                                  <Sparkles className="size-3" />
-                                )}
-                                AI Describe
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 gap-1 px-2 text-2xs text-destructive hover:text-destructive"
-                                onClick={() =>
-                                  setSelected((current) =>
-                                    current.filter((f) => f.key !== field.key),
-                                  )
-                                }
-                              >
-                                <Trash2 className="size-3" /> Remove
-                              </Button>
-                            </div>
-                              </>
+                              </td>
+                              <td className="py-1.5 pr-2 align-top">
+                                <Input
+                                  value={field.extraction_prompt ?? ""}
+                                  onChange={(event) =>
+                                    updateField(field.key, { extraction_prompt: event.target.value })
+                                  }
+                                  placeholder={field.description || `Extract ${field.display_name}.`}
+                                  aria-label={`Extraction prompt for ${field.display_name}`}
+                                  className="h-7 min-w-[220px] text-xs"
+                                />
+                              </td>
+                              <td className="py-1.5 align-top">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="size-7 p-0 text-destructive hover:text-destructive"
+                                  aria-label={`Remove ${field.display_name}`}
+                                  onClick={() =>
+                                    setSelected((current) => current.filter((f) => f.key !== field.key))
+                                  }
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </td>
+                            </tr>
+                            {expanded ? (
+                              <tr className="border-b border-border/60 bg-primary-soft/60">
+                                <td colSpan={7} className="px-2 pb-3 pt-1.5">
+                                  <div className="grid gap-2 sm:grid-cols-[minmax(0,160px)_1fr]">
+                                    <Select
+                                      value={field.data_type}
+                                      onValueChange={(value) =>
+                                        updateField(field.key, { data_type: value as DataType })
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className="h-7 text-xs"
+                                        aria-label={`Data type for ${field.display_name}`}
+                                      >
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {DATA_TYPES.map((type) => (
+                                          <SelectItem key={type.value} value={type.value} className="text-xs">
+                                            {type.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <div className="flex items-start gap-1.5 text-2xs text-muted-foreground">
+                                      <span
+                                        className={cn(
+                                          "mt-1 size-1.5 shrink-0 rounded-full",
+                                          confidenceLevel(field.confidence).dotClass,
+                                        )}
+                                        aria-hidden="true"
+                                      />
+                                      <span>
+                                        <span className="font-medium">
+                                          {confidenceLevel(field.confidence).label}
+                                        </span>
+                                        {field.description ? `  ${field.description}` : ""}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {(field.label_hints?.length ?? 0) > 0 ||
+                                  (field.confusion_hints?.length ?? 0) > 0 ? (
+                                    <p className="mt-1.5 text-2xs text-muted-foreground/80">
+                                      {field.label_hints?.length
+                                        ? `Looks for: ${field.label_hints.slice(0, 3).join(", ")}${
+                                            field.label_hints.length > 3 ? "…" : ""
+                                          }`
+                                        : ""}
+                                      {field.label_hints?.length && field.confusion_hints?.length
+                                        ? " · "
+                                        : ""}
+                                      {field.confusion_hints?.length
+                                        ? `Avoid confusing with: ${field.confusion_hints
+                                            .slice(0, 2)
+                                            .join(", ")}${field.confusion_hints.length > 2 ? "…" : ""}`
+                                        : ""}
+                                    </p>
+                                  ) : null}
+                                  <div className="mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 gap-1 px-2 text-2xs"
+                                      onClick={() => describeMutation.mutate(field)}
+                                      disabled={
+                                        describeMutation.isPending &&
+                                        describeMutation.variables?.key === field.key
+                                      }
+                                    >
+                                      {describeMutation.isPending &&
+                                      describeMutation.variables?.key === field.key ? (
+                                        <Loader2 className="size-3 animate-spin" />
+                                      ) : (
+                                        <Sparkles className="size-3" />
+                                      )}
+                                      AI Describe
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
                             ) : null}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                ),
-              )}
+                          </Fragment>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -1107,26 +980,30 @@ function LabelProfileScreen() {
               <div className="text-2xs text-muted-foreground">Selected fields</div>
             </div>
             <div className="rounded-md border border-border p-2.5">
-              <div className="text-lg font-semibold">
-                {bucketsTouched.size}/{BUCKETS.length}
-              </div>
-              <div className="text-2xs text-muted-foreground">Buckets touched</div>
+              <div className="text-lg font-semibold">{bucketsInUse.length}</div>
+              <div className="text-2xs text-muted-foreground">Field groups</div>
             </div>
           </div>
 
           <h3 className="mt-4 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Fields by Bucket
+            Fields by Group
           </h3>
-          <ul className="mt-1.5 space-y-1">
-            {BUCKETS.map((bucket) => (
-              <li key={bucket} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{bucket}</span>
-                <span className="font-medium">
-                  {selected.filter((f) => f.bucket === bucket).length}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {bucketsInUse.length === 0 ? (
+            <p className="mt-1.5 text-2xs text-muted-foreground">
+              Groups appear automatically once fields are added.
+            </p>
+          ) : (
+            <ul className="mt-1.5 space-y-1">
+              {bucketsInUse.map((bucket) => (
+                <li key={bucket} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{bucket}</span>
+                  <span className="font-medium">
+                    {selected.filter((f) => f.bucket === bucket).length}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <button
             type="button"
@@ -1161,7 +1038,19 @@ function LabelProfileScreen() {
         open={manualOpen}
         onOpenChange={setManualOpen}
         existingKeys={selectedKeys}
-        onAdd={(field) => setSelected((current) => [...current, field])}
+        existingBuckets={bucketsInUse}
+        onAdd={(field) => {
+          // Same case-insensitive fold as mergeFields — typing "financial
+          // information" when "Financial Information" already exists should
+          // join that group, not start a near-duplicate one.
+          const canonical = bucketsInUse.find(
+            (b) => b.toLowerCase() === field.bucket.toLowerCase(),
+          );
+          setSelected((current) => [
+            ...current,
+            canonical ? { ...field, bucket: canonical } : field,
+          ]);
+        }}
       />
     </div>
   );
@@ -1171,17 +1060,26 @@ function ManualFieldDialog({
   open,
   onOpenChange,
   existingKeys,
+  existingBuckets,
   onAdd,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existingKeys: Set<string>;
+  existingBuckets: string[];
   onAdd: (field: SelectedField) => void;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [dataType, setDataType] = useState<DataType>("text");
-  const [bucket, setBucket] = useState<string>(BUCKETS[0]);
+  const [bucket, setBucket] = useState<string>("");
   const [description, setDescription] = useState("");
+
+  // Default the bucket field to the schema's first existing group whenever
+  // the dialog (re)opens with nothing typed yet, so most manual adds land in
+  // an existing group without the user having to retype its name.
+  useEffect(() => {
+    if (open) setBucket((current) => current || existingBuckets[0] || "");
+  }, [open, existingBuckets]);
 
   function submit() {
     const trimmed = displayName.trim();
@@ -1201,14 +1099,14 @@ function ManualFieldDialog({
       key,
       display_name: trimmed.slice(0, 80),
       data_type: dataType,
-      bucket,
+      bucket: bucket.trim() || FALLBACK_BUCKET,
       description: description.trim().slice(0, 200),
       origin: "manual",
     });
     setDisplayName("");
     setDescription("");
     setDataType("text");
-    setBucket(BUCKETS[0]);
+    setBucket("");
     onOpenChange(false);
   }
 
@@ -1218,8 +1116,7 @@ function ManualFieldDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Add a custom field</DialogTitle>
           <DialogDescription className="text-sm">
-            Define a one-off field that is not in the shared library. It is saved with this
-            profile only.
+            Define a one-off field by hand. It is saved with this profile only.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1252,19 +1149,25 @@ function ManualFieldDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Bucket</Label>
-              <Select value={bucket} onValueChange={setBucket}>
-                <SelectTrigger className="h-8 text-sm" aria-label="Bucket">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BUCKETS.map((item) => (
-                    <SelectItem key={item} value={item} className="text-sm">
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="manual-bucket" className="text-xs">
+                Group
+              </Label>
+              <Input
+                id="manual-bucket"
+                list="manual-bucket-options"
+                value={bucket}
+                onChange={(event) => setBucket(event.target.value)}
+                placeholder="e.g. Shipment Details"
+                className="h-8 text-sm"
+              />
+              <datalist id="manual-bucket-options">
+                {existingBuckets.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              <p className="text-2xs text-muted-foreground">
+                Pick an existing group or type a new one.
+              </p>
             </div>
           </div>
           <div className="space-y-1.5">

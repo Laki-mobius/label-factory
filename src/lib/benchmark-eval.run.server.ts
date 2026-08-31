@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { draftBenchmarkEvaluation, type EvalMismatchSample } from "./benchmark-eval.server";
 import { resolveAiModel } from "./ai-provider.server";
 import type { MismatchSample } from "./field-match";
-import { maskForExport, sensitiveKeySet } from "./redact";
+import { isSensitiveValue, maskForExport, sensitiveKeySet } from "./redact";
 
 type FieldRow = {
   field_key: string;
@@ -114,6 +114,11 @@ export async function runBenchmarkEvaluation(
           category: m.kind,
           suggested: m.suggested,
           final: m.final,
+          // Stored as-is (this JSONB stays inside the app — it's rendered
+          // back to the reviewer, never sent anywhere), same as suggested/
+          // final above. The UI combines this with the field's profile-level
+          // Sensitive flag before deciding whether to mask on screen.
+          pii_detected: m.pii_detected,
         })),
       };
     })
@@ -143,16 +148,25 @@ export async function runBenchmarkEvaluation(
     clear: Math.max(0, (run.documents_evaluated ?? 0) - riskDocuments.length),
   };
 
+  const profileFlagged = (fieldKey: string) => sensitiveKeys.has(fieldKey);
   const sampleMismatches: EvalMismatchSample[] = fields.flatMap((field) => {
-    const isSensitive = sensitiveKeys.has(field.field_key);
     return asMismatches(field.mismatches)
       .slice(0, 2)
-      .map((m) => ({
-        field: field.field_label ?? field.field_key,
-        suggested: isSensitive ? maskForExport(m.suggested) : m.suggested,
-        final: isSensitive ? maskForExport(m.final) : m.final,
-        kind: m.kind,
-      }));
+      .map((m) => {
+        // Combine the static profile-level flag with THIS document's own
+        // automatic PII-scan result (m.pii_detected, carried on the
+        // mismatch sample since it was built — see field-match.ts) rather
+        // than only checking the field key, so a field nobody pre-flagged
+        // still gets redacted before reaching the third-party eval call
+        // when this particular document's value turned out to contain PII.
+        const isSensitive = isSensitiveValue(profileFlagged(field.field_key), m.pii_detected);
+        return {
+          field: field.field_label ?? field.field_key,
+          suggested: isSensitive ? maskForExport(m.suggested) : m.suggested,
+          final: isSensitive ? maskForExport(m.final) : m.final,
+          kind: m.kind,
+        };
+      });
   });
 
   const draft = await draftBenchmarkEvaluation({
