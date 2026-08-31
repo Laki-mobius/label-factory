@@ -311,6 +311,8 @@ export type Database = {
           field_label: string | null
           final_value: string | null
           id: string
+          pii_detected: boolean
+          pii_types: string[]
           reason_code: Database["public"]["Enums"]["extraction_reason_code"] | null
           reason_notes: string | null
           review_state: Database["public"]["Enums"]["extraction_review_state"]
@@ -331,6 +333,8 @@ export type Database = {
           field_label?: string | null
           final_value?: string | null
           id?: string
+          pii_detected?: boolean
+          pii_types?: string[]
           reason_code?: Database["public"]["Enums"]["extraction_reason_code"] | null
           reason_notes?: string | null
           review_state?: Database["public"]["Enums"]["extraction_review_state"]
@@ -351,6 +355,8 @@ export type Database = {
           field_label?: string | null
           final_value?: string | null
           id?: string
+          pii_detected?: boolean
+          pii_types?: string[]
           reason_code?: Database["public"]["Enums"]["extraction_reason_code"] | null
           reason_notes?: string | null
           review_state?: Database["public"]["Enums"]["extraction_review_state"]

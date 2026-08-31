@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/lib/workspace";
-import { maskForDisplay, sensitiveKeySet } from "@/lib/redact";
+import { isSensitiveValue, maskForDisplay, sensitiveKeySet } from "@/lib/redact";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/annotate")({
@@ -78,6 +78,11 @@ type ExtractionRow = {
   evidence_snippet: string | null;
   evidence_page: number | null;
   review_state: string;
+  /** Automatic PII-scan result for THIS document's value (see
+   *  src/lib/pii-scan.server.ts) — independent of, and combined with, the
+   *  label profile's manual per-field Sensitive flag via isSensitiveValue. */
+  pii_detected: boolean;
+  pii_types: string[];
 };
 
 type LineItem = { description: string; quantity: string; price: string; amount: string };
@@ -203,7 +208,7 @@ function AnnotateBody() {
       const { data, error } = await supabase
         .from("extractions")
         .select(
-          "id, field_key, field_label, data_type, suggested_value, final_value, confidence, evidence_snippet, evidence_page, review_state",
+          "id, field_key, field_label, data_type, suggested_value, final_value, confidence, evidence_snippet, evidence_page, review_state, pii_detected, pii_types",
         )
         .eq("document_id", documentId!)
         .order("created_at", { ascending: true });
@@ -238,6 +243,10 @@ function AnnotateBody() {
   // Fields the label profile marks Sensitive get their value and evidence
   // masked by default — a reviewer can still reveal one to do their job, but
   // the reveal never persists or leaves this screen (see src/lib/redact.ts).
+  // This is the static, profile-level signal; combined per-row below with
+  // each extraction's own automatic pii_detected flag via isSensitiveValue,
+  // so a field the profile didn't pre-flag still gets masked when this
+  // document's actual value turned out to contain PII.
   const sensitiveKeys = useMemo(
     () => sensitiveKeySet(profileQuery.data?.fields),
     [profileQuery.data],
@@ -365,10 +374,12 @@ function AnnotateBody() {
   };
 
   const pageCount = Math.max(activeDocument?.page_count ?? 1, 1);
-  const rawActiveEvidence =
-    extractions.find((row) => row.field_key === activeField)?.evidence_snippet ?? null;
+  const activeRow = extractions.find((row) => row.field_key === activeField) ?? null;
+  const rawActiveEvidence = activeRow?.evidence_snippet ?? null;
   const activeEvidenceHidden =
-    Boolean(activeField) && sensitiveKeys.has(activeField!) && !revealedKeys.has(activeField!);
+    Boolean(activeField) &&
+    isSensitiveValue(sensitiveKeys.has(activeField!), activeRow?.pii_detected) &&
+    !revealedKeys.has(activeField!);
   const activeEvidence = activeEvidenceHidden
     ? maskForDisplay(rawActiveEvidence)
     : rawActiveEvidence;
@@ -607,7 +618,17 @@ function AnnotateBody() {
                         const duplicate =
                           value.trim() && (duplicateValues.get(value.trim().toLowerCase()) ?? 0) > 1;
                         const isTable = row.data_type === "multi_value";
-                        const isSensitive = sensitiveKeys.has(row.field_key);
+                        const profileFlagged = sensitiveKeys.has(row.field_key);
+                        const isSensitive = isSensitiveValue(profileFlagged, row.pii_detected);
+                        // Distinguish "a human pre-flagged this field" from
+                        // "the automatic scan found PII in THIS document's
+                        // value" — same masking behavior either way, but the
+                        // label tells a reviewer why it's hidden.
+                        const sensitiveLabel = profileFlagged
+                          ? "Sensitive"
+                          : row.pii_types.length > 0
+                            ? `PII detected: ${row.pii_types.join(", ").replace(/_/g, " ")}`
+                            : "PII detected";
                         const revealed = revealedKeys.has(row.field_key);
                         return (
                           <li
@@ -630,8 +651,11 @@ function AnnotateBody() {
                                   {row.field_label ?? row.field_key}
                                 </span>
                                 {isSensitive ? (
-                                  <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
-                                    Sensitive
+                                  <span
+                                    className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive"
+                                    title={sensitiveLabel}
+                                  >
+                                    {profileFlagged ? "Sensitive" : "PII detected"}
                                   </span>
                                 ) : null}
                               </span>

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { extractDocumentText, extractValues, type ProfileField } from "./prelabel.server";
 import { resolveModelConfig } from "./ai-provider.server";
+import { scanForPii } from "./pii-scan.server";
 
 export async function runPrelabel(supabase: SupabaseClient<any>, documentId: string) {
   const { data: doc, error: docError } = await supabase
@@ -54,17 +55,30 @@ export async function runPrelabel(supabase: SupabaseClient<any>, documentId: str
       );
     }
 
+    const model = resolveModelConfig(profile?.model_config);
     const values = await extractValues({
-      model: resolveModelConfig(profile?.model_config),
+      model,
       documentType: profile?.document_type ?? "",
       filename: doc.filename,
       text,
       fields,
     });
 
+    // Automatic PII scan — runs on every prelabel so a field can be masked
+    // in Annotate/RLHF because of what THIS document's value actually
+    // contains, not only because a human pre-flagged the field key as
+    // "Sensitive" on the label profile. Best-effort: scanForPii never
+    // throws, so a scan failure can't block prelabeling.
+    const piiFindings = await scanForPii(
+      model,
+      values.map((value) => ({ field_key: value.field_key, value: value.value })),
+    );
+    const piiByKey = new Map(piiFindings.map((finding) => [finding.field_key, finding]));
+
     await supabase.from("extractions").delete().eq("document_id", documentId);
     const rows = values.map((value) => {
       const field = fields.find((item) => item.key === value.field_key);
+      const pii = piiByKey.get(value.field_key);
       return {
         document_id: documentId,
         field_key: value.field_key,
@@ -75,6 +89,8 @@ export async function runPrelabel(supabase: SupabaseClient<any>, documentId: str
         evidence_snippet: value.evidence,
         evidence_page: Math.min(value.page, Math.max(pages, 1)),
         review_state: "pending" as never,
+        pii_detected: pii?.pii_detected ?? false,
+        pii_types: pii?.pii_types ?? [],
       };
     });
     const { error: insertError } = await supabase.from("extractions").insert(rows);

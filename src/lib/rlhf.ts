@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { maskForExport, sensitiveKeySet } from "@/lib/redact";
+import { isSensitiveValue, maskForExport, sensitiveKeySet } from "@/lib/redact";
 
 /**
  * A single human-feedback training pair: what the AI suggested for a field
@@ -78,7 +78,7 @@ export async function fetchTrainingPairs(
   let query = supabase
     .from("extractions")
     .select(
-      "id, document_id, field_key, field_label, suggested_value, final_value, confidence, reviewed_at, review_state",
+      "id, document_id, field_key, field_label, suggested_value, final_value, confidence, reviewed_at, review_state, pii_detected",
     )
     .in(
       "document_id",
@@ -104,9 +104,10 @@ export async function fetchTrainingPairs(
     const suggested = row.suggested_value ?? "";
     if (corrected === suggested) continue;
 
-    const isSensitive = batch.label_profile_id
+    const profileFlagged = batch.label_profile_id
       ? (sensitiveByProfile.get(batch.label_profile_id)?.has(row.field_key) ?? false)
       : false;
+    const isSensitive = isSensitiveValue(profileFlagged, row.pii_detected);
 
     pairs.push({
       id: row.id,
@@ -258,7 +259,7 @@ export async function fetchFeedbackDocument(documentId: string): Promise<Feedbac
     supabase
       .from("extractions")
       .select(
-        "id, field_key, field_label, suggested_value, final_value, confidence, evidence_snippet, reason_code, reason_notes",
+        "id, field_key, field_label, suggested_value, final_value, confidence, evidence_snippet, reason_code, reason_notes, pii_detected",
       )
       .eq("document_id", documentId)
       .eq("review_state", "corrected")
@@ -276,7 +277,7 @@ export async function fetchFeedbackDocument(documentId: string): Promise<Feedbac
     evidenceSnippet: row.evidence_snippet ?? "",
     reasonCode: row.reason_code,
     reasonNotes: row.reason_notes ?? "",
-    sensitive: sensitiveKeys.has(row.field_key),
+    sensitive: isSensitiveValue(sensitiveKeys.has(row.field_key), row.pii_detected),
   }));
 }
 
@@ -394,7 +395,7 @@ export async function fetchPreferenceDocument(documentId: string): Promise<Prefe
   const [{ data: extractions, error: extractionError }, sensitiveKeys] = await Promise.all([
     supabase
       .from("extractions")
-      .select("field_key, field_label, suggested_value, final_value, evidence_snippet")
+      .select("field_key, field_label, suggested_value, final_value, evidence_snippet, pii_detected")
       .eq("document_id", documentId)
       .order("field_key", { ascending: true }),
     sensitiveKeysForDocument(documentId),
@@ -419,7 +420,10 @@ export async function fetchPreferenceDocument(documentId: string): Promise<Prefe
         modelBValue: decision?.model_b_value ?? "",
         decision: (decision?.decision ?? null) as PreferenceFieldRow["decision"],
         evidenceSnippet: row.evidence_snippet ?? "",
-        sensitive: sensitiveKeys.has(row.field_key),
+        // Model B is an alternate candidate for the same field, not a
+        // separately-scanned value, so it inherits this field's PII status
+        // from Model A's own extraction row rather than being scanned itself.
+        sensitive: isSensitiveValue(sensitiveKeys.has(row.field_key), row.pii_detected),
       };
     });
 }
@@ -581,6 +585,21 @@ export async function fetchPreferencePairs(
   const documentMap = new Map(documents.map((doc) => [doc.id, doc]));
   const batchMap = new Map(batchRows.map((batch) => [batch.id, batch]));
 
+  // rlhf_preference_decisions doesn't carry its own PII-scan result — look
+  // it up from the matching extraction row (document_id + field_key), the
+  // same automatic per-document signal used everywhere else in this file.
+  const { data: piiRows, error: piiError } = await supabase
+    .from("extractions")
+    .select("document_id, field_key, pii_detected")
+    .in(
+      "document_id",
+      documents.map((doc) => doc.id),
+    );
+  if (piiError) throw piiError;
+  const piiByDocField = new Map(
+    (piiRows ?? []).map((row) => [`${row.document_id}:${row.field_key}`, row.pii_detected]),
+  );
+
   let query = supabase
     .from("rlhf_preference_decisions")
     .select("document_id, field_key, field_label, model_a_value, model_b_value, decision, decided_at")
@@ -600,9 +619,13 @@ export async function fetchPreferencePairs(
     if (!doc) continue;
     const batch = batchMap.get(doc.batch_id);
     if (!batch) continue;
-    const isSensitive = batch.label_profile_id
+    const profileFlagged = batch.label_profile_id
       ? (sensitiveByProfile.get(batch.label_profile_id)?.has(row.field_key) ?? false)
       : false;
+    const isSensitive = isSensitiveValue(
+      profileFlagged,
+      piiByDocField.get(`${row.document_id}:${row.field_key}`),
+    );
     pairs.push({
       documentId: row.document_id,
       filename: doc.filename,

@@ -1,7 +1,20 @@
 /**
- * Masking for fields a label profile marks `sensitive: true` (see
- * label-profile.tsx's Sensitive toggle). There are two distinct strengths
- * for two distinct trust boundaries — never use one where the other belongs:
+ * Masking for sensitive field values. A value can be sensitive for either of
+ * two independent reasons — combine both wherever a masking decision is made
+ * (see isSensitiveValue below):
+ *
+ *  - A human marked the field key `sensitive: true` on the label profile
+ *    ahead of time (label-profile.tsx's Sensitive toggle) — every document
+ *    using that profile treats that field as sensitive, always.
+ *  - The automatic PII scan (src/lib/pii-scan.server.ts, run during
+ *    prelabeling) found likely personal data in THIS document's actual
+ *    value for that field (extractions.pii_detected) — catches the case
+ *    where an otherwise-ordinary field (e.g. free-text "Notes") happens to
+ *    contain someone's name or phone number on one document but not
+ *    another, which a static per-profile flag can never catch.
+ *
+ * There are also two distinct masking STRENGTHS for two distinct trust
+ * boundaries — never use one where the other belongs:
  *
  *  - `maskForDisplay` — partial, REVERSIBLE-BY-THE-VIEWER masking for a
  *    human reviewer who legitimately needs to see the real value to do
@@ -36,4 +49,13 @@ export function sensitiveKeySet(fields: unknown): Set<string> {
     if (row && typeof row.key === "string" && row.sensitive === true) keys.add(row.key);
   }
   return keys;
+}
+
+/** Combines the profile-level "always sensitive" flag with the per-document
+ *  automatic PII-scan result for one field — true if either says sensitive.
+ *  Use this everywhere a masking decision is made instead of checking
+ *  sensitiveKeySet alone, so a field the profile didn't pre-flag still gets
+ *  masked when this document's actual value turned out to contain PII. */
+export function isSensitiveValue(profileFlagged: boolean, piiDetected: boolean | null | undefined): boolean {
+  return profileFlagged || Boolean(piiDetected);
 }
