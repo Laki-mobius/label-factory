@@ -1072,6 +1072,7 @@ export type Database = {
         | "manufacturing"
         | "insurance"
         | "logistics"
+        | "real_estate"
         | "general"
     }
     CompositeTypes: {
@@ -1254,6 +1255,7 @@ export const Constants = {
         "manufacturing",
         "insurance",
         "logistics",
+        "real_estate",
         "general",
       ],
     },

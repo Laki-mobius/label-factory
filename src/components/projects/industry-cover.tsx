@@ -2,6 +2,7 @@ import {
   Banknote,
   Building2,
   HeartPulse,
+  Home,
   Landmark,
   Scale,
   Factory,
@@ -65,6 +66,13 @@ const COVERS: Record<
     from: "oklch(0.56 0.18 310)",
     to: "oklch(0.42 0.14 330)",
     pattern: "circles",
+  },
+  real_estate: {
+    icon: Home,
+    caption: "Real Estate",
+    from: "oklch(0.6 0.14 75)",
+    to: "oklch(0.44 0.13 50)",
+    pattern: "grid",
   },
   general: {
     icon: Building2,

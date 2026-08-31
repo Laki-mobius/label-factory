@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +50,22 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [hasCustomBg, setHasCustomBg] = useState(false);
+  const bgImgRef = useRef<HTMLImageElement>(null);
+
+  // This page is server-rendered, so the browser can start (and finish)
+  // fetching login-background.jpg before React ever attaches the onLoad
+  // handler below — often from cache, which resolves near-instantly. When
+  // that happens the "load" event fires and is gone before we're listening
+  // for it, so hasCustomBg gets stuck at its initial `false` forever even
+  // though the image loaded fine. Checking `.complete` once after mount
+  // catches that case; onLoad/onError below still cover a genuinely slow
+  // or missing image.
+  useEffect(() => {
+    const img = bgImgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setHasCustomBg(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && session) {
@@ -111,6 +127,7 @@ function AuthPage() {
             image; onError leaves hasCustomBg false and the gradient below
             (still in the DOM) shows through untouched. */}
         <img
+          ref={bgImgRef}
           src={LOGIN_BACKGROUND_SRC}
           alt=""
           aria-hidden="true"

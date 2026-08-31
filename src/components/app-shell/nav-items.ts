@@ -59,6 +59,7 @@ export const WORKSPACE_TYPES = [
   { value: "manufacturing", label: "Manufacturing" },
   { value: "insurance", label: "Insurance" },
   { value: "logistics", label: "Logistics" },
+  { value: "real_estate", label: "Real Estate" },
   { value: "general", label: "General / Other" },
 ] as const;
 
